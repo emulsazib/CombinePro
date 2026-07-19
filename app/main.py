@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import QApplication, QFileDialog
 
 from app.config import Config
 from app.core.orchestrator import Orchestrator
+from app.memory.sidecar_process import SidecarProcess
 from app.ui.icons import app_icon
 from app.ui.main_window import MainWindow
 from app.ui.theme import apply_theme
@@ -37,7 +38,16 @@ def resolve_workspace(app: QApplication, config: Config) -> Path | None:
     return Path(chosen).resolve()
 
 
-async def amain(app: QApplication, window: MainWindow, orchestrator: Orchestrator) -> None:
+async def amain(
+    app: QApplication,
+    window: MainWindow,
+    orchestrator: Orchestrator,
+    sidecar: SidecarProcess | None,
+) -> None:
+    if sidecar is not None and sidecar.running:
+        # Give the freshly spawned sidecar a moment to bind its port before the
+        # orchestrator's first health check.
+        await asyncio.sleep(1.0)
     await orchestrator.start()
     pump = asyncio.ensure_future(window.run_event_pump())
 
@@ -47,6 +57,8 @@ async def amain(app: QApplication, window: MainWindow, orchestrator: Orchestrato
 
     pump.cancel()
     await orchestrator.stop()
+    if sidecar is not None:
+        sidecar.stop()
 
 
 def main() -> int:
@@ -55,6 +67,12 @@ def main() -> int:
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
+    # Packaging check: verify a built bundle's dependencies resolve, then exit.
+    if "--selftest" in sys.argv:
+        from app.selftest import run as run_selftest
+
+        return run_selftest()
+
     config = Config()
 
     app = QApplication(sys.argv)
@@ -71,12 +89,21 @@ def main() -> int:
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
+    # Start the bundled memory sidecar. Missing Node is not fatal — the app runs
+    # without Delta Memory and reports it in Settings → Memory & MCP.
+    sidecar = SidecarProcess(config.sidecar_url)
+    if not sidecar.start():
+        log.warning("Delta Memory unavailable: %s", sidecar.reason)
+
     orchestrator = Orchestrator(config, workspace)
     window = MainWindow(config, workspace, orchestrator)
     window.show()
 
-    with loop:
-        loop.run_until_complete(amain(app, window, orchestrator))
+    try:
+        with loop:
+            loop.run_until_complete(amain(app, window, orchestrator, sidecar))
+    finally:
+        sidecar.stop()
     return 0
 
 

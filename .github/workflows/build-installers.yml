@@ -1,0 +1,92 @@
+name: Build installers
+
+# PyInstaller cannot cross-compile, so each installer is built on its own
+# native runner. Produces a macOS .dmg and a Windows setup .exe.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  macos:
+    name: macOS (.dmg)
+    runs-on: macos-14        # Apple silicon
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"   # 3.14 wheels for PyQt6 land here first
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r app/requirements.txt pyinstaller
+
+      - name: Build app + DMG
+        env:
+          PYTHON: python
+          # Set these repo secrets to ship a signed, Gatekeeper-friendly build.
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+        run: |
+          chmod +x installer/build_macos.sh
+          ./installer/build_macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CombinePro-macOS
+          path: installer/dist/*.dmg
+          if-no-files-found: error
+
+  windows:
+    name: Windows (setup .exe)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r app/requirements.txt pyinstaller
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build exe + installer
+        env:
+          PYTHON: python
+        run: powershell -ExecutionPolicy Bypass -File installer\build_windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CombinePro-Windows
+          path: installer/dist/*Setup.exe
+          if-no-files-found: error
+
+  release:
+    name: Attach to release
+    needs: [macos, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*

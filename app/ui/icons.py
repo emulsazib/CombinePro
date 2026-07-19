@@ -13,11 +13,11 @@ import logging
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QIcon, QPainter, QPainterPath, QPixmap
 
-from app.config import REPO_ROOT
+from app.paths import resource_path
 
 log = logging.getLogger(__name__)
 
-ICON_DIR = REPO_ROOT / "AppIcons" / "Assets.xcassets" / "AppIcon.appiconset"
+ICON_DIR = resource_path("AppIcons", "Assets.xcassets", "AppIcon.appiconset")
 ICON_SIZES = (16, 32, 64, 128, 256, 512, 1024)
 
 # Corner radius, expressed as 14px at a 64px icon and scaled proportionally so

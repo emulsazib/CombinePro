@@ -43,7 +43,60 @@ shared memory system (`@vonneollc/knbase`).
   emits `{"target_domain", "request", "urgency"}`; the router resolves the
   domain and wakes the owning agent.
 
-## Requirements
+## Install (end users)
+
+Grab an installer from the latest release, or build one yourself (below).
+
+| Platform | File | How to install |
+|---|---|---|
+| macOS | `CombinePro-1.0.4-macOS.dmg` | Open the DMG, drag **CombinePro** onto **Applications**. |
+| Windows | `CombinePro-1.0.4-Windows-Setup.exe` | Double-click and follow the wizard. |
+
+The app is self-contained — Python, Qt and all dependencies are bundled. Your
+API keys are stored per-user (`~/Library/Application Support/CombinePro/.env` on
+macOS, `%APPDATA%\CombinePro\.env` on Windows), so they survive upgrades.
+
+**Node.js is optional.** The memory sidecar is bundled and starts automatically
+when Node 18+ is on your machine. Without Node the app runs normally, just with
+Delta Memory offline — visible any time in *Settings → Memory & MCP*.
+
+> **Unsigned builds**: without code-signing certificates, macOS Gatekeeper needs
+> a right-click → *Open* on first launch, and Windows SmartScreen needs
+> *More info → Run anyway*. See *Signing* below.
+
+## Building the installers
+
+```sh
+# macOS  →  installer/dist/CombinePro-1.0.4-macOS.dmg
+./installer/build_macos.sh
+
+# Windows (must run ON Windows)  →  installer/dist/...-Windows-Setup.exe
+powershell -ExecutionPolicy Bypass -File installer\build_windows.ps1
+```
+
+Each script vendors the sidecar's `node_modules`, regenerates the `.icns`/`.ico`
+from `AppIcons/`, runs PyInstaller, then **self-tests the bundle**
+(`CombinePro --selftest`) and refuses to package a broken build.
+
+PyInstaller cannot cross-compile, so **each installer must be built on its own
+OS**. `.github/workflows/build-installers.yml` does both on native runners —
+push a `v*` tag and it attaches the DMG and setup `.exe` to the release.
+
+### Signing
+
+Optional but recommended for distribution:
+
+```sh
+# macOS — needs an Apple Developer ID
+CODESIGN_IDENTITY="Developer ID Application: You (TEAMID)" ./installer/build_macos.sh
+
+# Windows — sign the setup .exe with your certificate
+signtool sign /fd SHA256 /a installer\dist\CombinePro-1.0.4-Windows-Setup.exe
+```
+
+In CI, set the `MACOS_CODESIGN_IDENTITY` repository secret.
+
+## Requirements (development)
 
 - **Python ≥ 3.10** (Homebrew `python3.14` works; the macOS system 3.9 does
   **not** — PyQt6/tree-sitter ship `cp310-abi3` wheels).
@@ -121,6 +174,8 @@ immediately — only a workspace change needs a restart.
 | `sidecar/server.js` | Express REST wrapper over knbase (`/init`, `/session/start`, `/context`, `/task/*`, `/log`, `/governance/:key`) |
 | `app/main.py` | Entry point — qasync merges the Qt and asyncio loops |
 | `AppIcons/` | Application icon source (16–1024px set, loaded by `app/ui/icons.py`) |
+| `app/paths.py` | Resolves resource vs. writable-config paths for source and bundled builds |
+| `installer/` | PyInstaller spec, icon generation, and the macOS/Windows build scripts |
 | `app/core/` | Event bus, typed events, rule-based router, domain map, per-file lock registry, orchestrator |
 | `app/agents/` | `BaseAgent` contract + Claude / OpenAI / Gemini / stub connectors |
 | `app/context/` | tree-sitter AST skeletons + watchdog delta watcher |

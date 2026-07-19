@@ -7,8 +7,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-ENV_PATH = REPO_ROOT / ".env"
+from app.paths import REPO_ROOT, env_path
+
+# In a built app this resolves to the per-user data dir (writable, survives
+# upgrades); from source it stays next to the repo.
+ENV_PATH = env_path()
 load_dotenv(ENV_PATH)
 
 AGENT_NAMES = ("claude", "openai", "gemini")
