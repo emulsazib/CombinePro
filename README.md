@@ -17,9 +17,9 @@ shared memory system (`@vonneollc/knbase`).
 │  │ domain dock     │           │ LocalRouter      │                  │ └────────────────────┘  │
 │  │ activity feed   │           │  (rule triage,   │──── wake ──► BaseAgent                     │
 │  └─────────────────┘           │   debounce)      │              ├─ ClaudeAgent (anthropic)    │
-│                                │ Orchestrator     │              ├─ OpenAIAgent (openai)     │
-│                                │  (locks, memory) │              ├─ GeminiAgent (google-genai)│
-│                                └────────┬─────────┘              └─ StubAgent (no key)        │
+│                                │ Orchestrator     │              ├─ OpenAIAgent (openai)       │
+│                                │  (locks, memory) │              ├─ GeminiAgent (google-genai) │
+│                                └────────┬─────────┘              └─ StubAgent (no key)         │
 │                                         │ Delta Memory (REST)                                  │
 └─────────────────────────────────────────┼──────────────────────────────────────────────────────┘
                                           ▼
