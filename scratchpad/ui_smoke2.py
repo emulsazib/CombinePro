@@ -154,6 +154,38 @@ def main() -> int:
     assert "run-button-works 42" in term_text, f"Run output missing:\n{term_text[-400:]}"
     prog.unlink()
 
+    # ---- agent file creation (offline stub scaffolds a real file) --------
+    import asyncio
+    from app.agents.base import AgentContext
+
+    stub = orch.agents[first_agent]
+    task = TaskRequest(
+        agent_name=first_agent, domain="scratchpad",
+        description="Generate a calculator using python script",
+        target_file="", urgency="high",
+    )
+    res = asyncio.run(stub.wake(task, AgentContext(skeleton="", target_file="", target_content="")))
+    assert res.file_writes, "stub did not author any file"
+    assert res.file_writes[0].path == "scratchpad/calculator.py", res.file_writes[0].path
+
+    # Domain/role scoping.
+    assert orch._allowed_write("scratchpad/calculator.py", "scratchpad")
+    assert not orch._allowed_write("app/core/orchestrator.py", "scratchpad")
+    assert not orch._allowed_write("../evil.py", "")
+
+    # Simulate the orchestrator applying the write, then the UI reacting.
+    created = REPO / res.file_writes[0].path
+    created.write_text(res.file_writes[0].content)
+    win._on_event(res)
+    app.processEvents()
+    assert win.workspace_view.editor.current_path() == "scratchpad/calculator.py", \
+        "created file was not opened in the editor"
+    # And the scaffold actually runs.
+    import subprocess
+    out = subprocess.run([sys.executable, str(created)], capture_output=True, text=True)
+    assert "6 * 7 = 42" in out.stdout, f"calculator scaffold did not run:\n{out.stdout}{out.stderr}"
+    created.unlink()
+
     # ---- screenshots ------------------------------------------------------
     win._switch_view("explorer")
     app.processEvents()

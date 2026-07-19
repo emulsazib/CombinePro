@@ -204,3 +204,9 @@ class WorkspaceView(QWidget):
 
     def current_path(self) -> str | None:
         return self.editor.current_path()
+
+    def refresh_tree(self) -> None:
+        """Force the file tree to re-read the workspace (after agent writes)."""
+        self._fs_model.setRootPath("")
+        self._fs_model.setRootPath(str(self.workspace))
+        self.tree.setRootIndex(self._fs_model.index(str(self.workspace)))

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from dataclasses import replace
 from pathlib import Path
 
 from app.agents.base import AgentContext, BaseAgent
@@ -127,9 +128,28 @@ class Orchestrator:
             agent.state = "dormant"
             self.bus.publish(AgentStateChanged(agent_name=agent.name, state="dormant", source="orchestrator"))
 
+        # Apply file writes BEFORE publishing the result, scoped to the agent's
+        # domain (role). This lets the agent create/modify multiple files; the UI
+        # opens exactly the files that landed on disk.
+        applied: list = []
+        if result.ok:
+            for write in result.file_writes:
+                if self._allowed_write(write.path, task.domain):
+                    await self._apply_write(write.path, write.content)
+                    applied.append(write)
+                else:
+                    log.warning(
+                        "Agent '%s' tried to write outside its domain '%s': %s (rejected)",
+                        agent.name, task.domain or "(root)", write.path,
+                    )
+            if result.new_content is not None and task.target_file:
+                if self._allowed_write(task.target_file, task.domain):
+                    await self._apply_write(task.target_file, result.new_content)
+
+        if applied != list(result.file_writes):
+            result = replace(result, file_writes=tuple(applied))
+
         self.bus.publish(result)
-        if result.ok and result.new_content is not None and task.target_file:
-            await self._apply_write(task.target_file, result.new_content)
         if result.cross_domain is not None:
             log.info(
                 "Cross-domain signal from '%s' → '%s'",
@@ -160,6 +180,25 @@ class Orchestrator:
             target_file=task.target_file,
             target_content=content,
         )
+
+    def _allowed_write(self, rel: str, domain: str) -> bool:
+        """A write is allowed if it stays inside the workspace and, when the task
+        has a domain (role), inside that domain."""
+        rel = rel.strip()
+        if not rel:
+            return False
+        ws = self.workspace.resolve()
+        try:
+            target = (self.workspace / rel).resolve()
+            target.relative_to(ws)  # inside the workspace
+        except (ValueError, OSError):
+            return False
+        if domain:
+            try:
+                target.relative_to((self.workspace / domain).resolve())
+            except (ValueError, OSError):
+                return False
+        return True
 
     async def _apply_write(self, rel: str, content: str) -> None:
         path = self.workspace / rel
@@ -236,16 +275,12 @@ class Orchestrator:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return 0
-        names = list(agent_names) if agent_names else list(self.agents.keys())
+
+        plan = self._route_prompt(description, target_file, agent_names)
         scheduled = 0
-        for name in names:
+        for name, domain in plan:
             if name not in self.agents:
                 continue
-            domain = ""
-            if target_file:
-                owner = self.domain_map.owner_of(target_file)
-                if owner:
-                    domain = owner[0]
             task = TaskRequest(
                 agent_name=name, domain=domain, description=description,
                 target_file=target_file, urgency="high", source="ui",
@@ -253,6 +288,31 @@ class Orchestrator:
             loop.create_task(self._handle_wake(task))
             scheduled += 1
         return scheduled
+
+    def _route_prompt(
+        self, description: str, target_file: str, agent_names: list[str] | None
+    ) -> list[tuple[str, str]]:
+        """Decide which agents handle a prompt and in which domain (role).
+
+        - explicit agent_names → those agents (domain from the open file's owner)
+        - a file is open with an assigned owner → that owner, in its domain
+        - domains assigned → each assigned agent works its own domain (role-based)
+        - otherwise → all agents, workspace-root scope
+        """
+        assignments = self.domain_map.assignments()  # folder -> agent
+        owner = self.domain_map.owner_of(target_file) if target_file else None
+        file_domain = owner[0] if owner else ""
+
+        if agent_names:
+            return [(n, file_domain) for n in agent_names]
+        if owner:
+            return [(owner[1], owner[0])]
+        if assignments:
+            by_agent: dict[str, str] = {}
+            for folder, agent in assignments.items():
+                by_agent.setdefault(agent, folder)
+            return list(by_agent.items())
+        return [(name, "") for name in self.agents]
 
     def emit_cross_domain(self, target_domain: str, request: str, urgency: str = "low") -> None:
         """Manual/simulated cross-domain signal (used by the UI debug action)."""

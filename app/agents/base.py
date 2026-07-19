@@ -12,7 +12,7 @@ import json
 import logging
 from dataclasses import dataclass
 
-from app.core.events import AgentResult, CrossDomainSignal, FileChange, TaskRequest
+from app.core.events import AgentResult, CrossDomainSignal, FileChange, FileWrite, TaskRequest
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +42,24 @@ RESULT_SCHEMA: dict = {
             "anyOf": [{"type": "string"}, {"type": "null"}],
             "description": "Full replacement content for the target file, or null for no edit.",
         },
+        "file_writes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                    "change_type": {"type": "string", "enum": ["created", "modified"]},
+                },
+                "required": ["path", "content", "change_type"],
+                "additionalProperties": False,
+            },
+            "description": (
+                "Files to create or modify WITHIN your allocated domain. Each entry "
+                "is the full file content (never a diff). Use this to author new files "
+                "(e.g. a requested script) or rewrite existing ones."
+            ),
+        },
         "cross_domain_request": {
             "anyOf": [
                 {"type": "null"},
@@ -59,24 +77,29 @@ RESULT_SCHEMA: dict = {
             "description": "Set ONLY if a change is needed outside your allocated domain.",
         },
     },
-    "required": ["summary", "files_changed", "new_content", "cross_domain_request"],
+    "required": ["summary", "files_changed", "new_content", "file_writes", "cross_domain_request"],
     "additionalProperties": False,
 }
 
 SYSTEM_PROMPT = """\
 You are one of several AI agents collaborating on a codebase inside CombinePro.
-You are allocated a single domain (directory). Hard rules:
-1. You may propose changes ONLY to the single target file named in the task.
-2. If a change is needed outside your domain, do NOT make it — describe it in
+You are allocated a single domain (directory) — your role. Hard rules:
+1. You MAY create new files and modify existing files, but ONLY within your
+   allocated domain. Return every file you author in `file_writes`, each with its
+   `path` (relative to the workspace root, inside your domain), full `content`,
+   and `change_type` ("created" or "modified"). Write complete, runnable files.
+2. If a change is needed OUTSIDE your domain, do NOT make it — describe it in
    `cross_domain_request` ({"target_domain", "request", "urgency"}) instead.
-3. You see an AST skeleton of your domain (signatures + docstrings only) plus
-   the full text of the target file. Never ask for more files.
-4. Reply with ONLY the required JSON object: a structural summary, the list of
-   files_changed (use change_type "none" if nothing needs editing), the full
-   new_content for the target file (or null to leave it untouched), and an
-   optional cross_domain_request.
-Prefer minimal, surgical edits. If the change you were woken for is already
-consistent, report change_type "none" and null new_content.
+3. You see an AST skeleton of your domain plus the full text of the target file
+   (if any). Never ask for more files.
+4. When the task names a single target file, you may instead put its full new
+   text in `new_content` (or null to leave it untouched); `file_writes` is
+   preferred for new files and multi-file work.
+5. Reply with ONLY the required JSON object: `summary`, `files_changed` (a short
+   list describing each change; use "none" if nothing changed), `new_content`,
+   `file_writes`, and `cross_domain_request`.
+Prefer complete, correct implementations. If asked to generate something (e.g.
+"a calculator script"), create the file(s) that fully satisfy the request.
 """
 
 
@@ -149,6 +172,15 @@ class BaseAgent(abc.ABC):
             for c in data.get("files_changed", [])
             if isinstance(c, dict)
         )
+        writes = tuple(
+            FileWrite(
+                path=str(w.get("path", "")),
+                content=str(w.get("content", "")),
+                change_type=w.get("change_type", "modified"),
+            )
+            for w in data.get("file_writes", [])
+            if isinstance(w, dict) and str(w.get("path", "")).strip()
+        )
         return AgentResult(
             agent_name=self.name,
             task_id=task.task_id,
@@ -156,6 +188,7 @@ class BaseAgent(abc.ABC):
             summary=str(data.get("summary", "")),
             files_changed=changes,
             new_content=data.get("new_content"),
+            file_writes=writes,
             cross_domain=self._parse_cross_domain(data.get("cross_domain_request")),
             source=self.name,
         )

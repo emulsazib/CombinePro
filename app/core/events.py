@@ -56,6 +56,18 @@ class FileChange:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class FileWrite:
+    """A concrete file the agent wants created/modified, with full content.
+
+    Unlike FileChange (a summary), this carries the bytes the orchestrator will
+    write to disk (after domain/role scoping)."""
+
+    path: str  # relative to workspace root
+    content: str
+    change_type: ChangeType = "modified"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class CrossDomainSignal(Event):
     """Spec payload: an agent needs a change outside its allocated directory."""
 
@@ -75,6 +87,7 @@ class AgentResult(Event):
     summary: str = ""
     files_changed: tuple[FileChange, ...] = ()
     new_content: str | None = None  # proposed content for the task's target_file
+    file_writes: tuple[FileWrite, ...] = ()  # files to create/modify in-domain
     cross_domain: CrossDomainSignal | None = None
     error: str = ""
 

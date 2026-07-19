@@ -1,13 +1,26 @@
 """Stub agent used when a provider's API key is missing.
 
-Keeps the whole pipeline (router → wake → result → memory write) testable with
-zero keys. It never proposes content changes, so it can't cause write loops.
+Keeps the whole pipeline (router → wake → result → write → memory) working with
+zero keys. It cannot reason like a real model, but it CAN exercise the file-write
+capability: for a "generate/create …" prompt it authors a runnable scaffold file
+(a working template for a few common asks, e.g. a calculator) inside its allowed
+domain, clearly labelled as stub output. Set the provider key to get real code.
 """
 from __future__ import annotations
 
 import json
+import re
 
 from app.agents.base import BaseAgent
+
+_STOPWORDS = {
+    "generate", "create", "make", "build", "write", "implement", "add", "scaffold",
+    "new", "a", "an", "the", "using", "use", "with", "in", "for", "to", "me", "my",
+    "please", "script", "program", "code", "file", "app", "application", "simple",
+    "python", "py", "javascript", "js", "node", "and", "of", "on", "that", "this",
+}
+_CREATION_VERBS = ("generate", "create", "make", "build", "write", "implement",
+                   "add", "scaffold", "new ")
 
 
 class StubAgent(BaseAgent):
@@ -18,22 +31,156 @@ class StubAgent(BaseAgent):
         self.missing_key = missing_key
 
     async def _complete(self, system_static: str, system_skeleton: str, user: str) -> str:
-        target = ""
-        for line in user.splitlines():
-            if line.startswith("--- Target file: "):
-                target = line.removeprefix("--- Target file: ").rstrip(" -")
-                break
-        return json.dumps(
-            {
-                "summary": (
-                    f"[stub:{self.name}] Reviewed the task but made no changes — "
-                    f"set {self.missing_key} to enable the real connector. "
-                    f"Context received: {len(system_skeleton)}B skeleton, {len(user)}B task."
-                ),
-                "files_changed": [
-                    {"path": target, "change_type": "none", "symbols": []}
-                ] if target else [],
-                "new_content": None,
-                "cross_domain_request": None,
-            }
-        )
+        domain, task_desc, target = _parse_user(user)
+
+        file_writes: list[dict] = []
+        if _looks_like_creation(task_desc):
+            base, ext = _suggest_filename(task_desc)
+            rel = f"{base}{ext}"
+            if domain:
+                rel = f"{domain.rstrip('/')}/{rel}"
+            file_writes.append({
+                "path": rel,
+                "content": _scaffold(base, ext, task_desc, self.name, self.missing_key),
+                "change_type": "created",
+            })
+            summary = (
+                f"[stub:{self.name}] Created scaffold '{rel}'. Set {self.missing_key} "
+                f"in Settings for a full AI-authored implementation."
+            )
+            files_changed = [{"path": rel, "change_type": "created", "symbols": []}]
+        else:
+            summary = (
+                f"[stub:{self.name}] Reviewed the task but made no changes — "
+                f"set {self.missing_key} to enable the real connector."
+            )
+            files_changed = (
+                [{"path": target, "change_type": "none", "symbols": []}] if target else []
+            )
+
+        return json.dumps({
+            "summary": summary,
+            "files_changed": files_changed,
+            "new_content": None,
+            "file_writes": file_writes,
+            "cross_domain_request": None,
+        })
+
+
+# --------------------------------------------------------------------- helpers
+
+def _parse_user(user: str) -> tuple[str, str, str]:
+    domain = ""
+    task_desc = ""
+    target = ""
+    for line in user.splitlines():
+        if line.startswith("Domain: "):
+            value = line.removeprefix("Domain: ").strip()
+            domain = "" if value in ("", "(workspace root)") else value
+        elif line.startswith("Task: "):
+            task_desc = line.removeprefix("Task: ").strip()
+        elif line.startswith("--- Target file: "):
+            target = line.removeprefix("--- Target file: ").rstrip(" -").strip()
+    return domain, task_desc, target
+
+
+def _looks_like_creation(task_desc: str) -> bool:
+    low = task_desc.lower()
+    return any(verb in low for verb in _CREATION_VERBS)
+
+
+def _suggest_filename(task_desc: str) -> tuple[str, str]:
+    low = task_desc.lower()
+    ext = ".js" if ("javascript" in low or "node" in low or re.search(r"\bjs\b", low)) else ".py"
+    tokens = re.findall(r"[a-zA-Z][a-zA-Z0-9_]*", low)
+    meaningful = [t for t in tokens if t not in _STOPWORDS]
+    base = meaningful[0] if meaningful else "generated"
+    base = re.sub(r"[^a-z0-9_]", "_", base)
+    return base, ext
+
+
+def _scaffold(base: str, ext: str, task_desc: str, agent: str, missing_key: str) -> str:
+    if ext == ".py" and "calculat" in base:
+        return _PY_CALCULATOR.format(task=task_desc, agent=agent, key=missing_key)
+    if ext == ".js":
+        return _JS_SCAFFOLD.format(base=base, task=task_desc, agent=agent, key=missing_key)
+    return _PY_SCAFFOLD.format(base=base, task=task_desc, agent=agent, key=missing_key)
+
+
+_PY_CALCULATOR = '''\
+"""Simple calculator.
+
+Request: {task}
+Generated by CombinePro ({agent} stub). Set {key} in Settings to have {agent}
+produce a full implementation.
+"""
+
+
+def add(a, b):
+    return a + b
+
+
+def subtract(a, b):
+    return a - b
+
+
+def multiply(a, b):
+    return a * b
+
+
+def divide(a, b):
+    if b == 0:
+        raise ValueError("cannot divide by zero")
+    return a / b
+
+
+OPS = {{"+": add, "-": subtract, "*": multiply, "/": divide}}
+
+
+def calculate(a, op, b):
+    if op not in OPS:
+        raise ValueError(f"unknown operator: {{op}}")
+    return OPS[op](a, b)
+
+
+def main():
+    print("Simple Calculator")
+    for a, op, b in [(2, "+", 3), (10, "-", 4), (6, "*", 7), (20, "/", 5)]:
+        print(f"{{a}} {{op}} {{b}} = {{calculate(a, op, b)}}")
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+_PY_SCAFFOLD = '''\
+"""{base}
+
+Request: {task}
+Generated by CombinePro ({agent} stub) — a runnable scaffold. Set {key} in
+Settings to have {agent} author a complete implementation.
+"""
+
+
+def main():
+    print("{base}: scaffold generated by the {agent} stub")
+    print("Prompt: {task}")
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+_JS_SCAFFOLD = '''\
+// {base}
+// Request: {task}
+// Generated by CombinePro ({agent} stub). Set {key} in Settings for a full
+// AI-authored implementation.
+
+function main() {{
+  console.log("{base}: scaffold generated by the {agent} stub");
+  console.log("Prompt: {task}");
+}}
+
+main();
+'''

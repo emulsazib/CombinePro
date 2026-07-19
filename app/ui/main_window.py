@@ -337,6 +337,15 @@ class MainWindow(QMainWindow):
                 code = "\n".join(event.new_content.splitlines()[:4])
             self.workspace_view.thought.add_entry(event.agent_name, color, text, code)
             self.workspace_view.editor.set_diff_analysis(event)
+            for write in event.file_writes:
+                abs_path = self.workspace / write.path
+                self.workspace_view.terminal.append_line(
+                    f"{event.agent_name} {write.change_type} {write.path}", theme.OK
+                )
+                if abs_path.is_file():
+                    self.workspace_view.editor.open_file(abs_path, write.path)
+            if event.file_writes:
+                self.workspace_view.refresh_tree()
             full = self.cluster_view.agent_cards.get(event.agent_name)
             if full:
                 full.set_metrics(
