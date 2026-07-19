@@ -18,7 +18,7 @@ from app.agents.claude_agent import ClaudeAgent
 from app.agents.gemini_agent import GeminiAgent
 from app.agents.openai_agent import OpenAIAgent
 from app.agents.stub_agent import StubAgent
-from app.config import Config
+from app.config import AGENT_NAMES, Config
 from app.context.ast_skeleton import SkeletonBuilder
 from app.context.file_watcher import FileWatcher
 from app.core.domain_map import DomainMap
@@ -76,6 +76,9 @@ class Orchestrator:
         )
         self._agent_locks: dict[str, asyncio.Lock] = {name: asyncio.Lock() for name in self.agents}
         self.memory_ok = False
+        self._profiles_path = workspace / ".combinepro" / "agents.json"
+        self._profiles: list[dict] = []
+        self._load_dynamic_agents()
 
     # ------------------------------------------------------------- lifecycle
 
@@ -258,6 +261,119 @@ class Orchestrator:
         except SidecarError as exc:
             log.warning("Memory write failed: %s", exc)
             self.bus.publish(SidecarStatus(healthy=False, detail=str(exc), source="memory"))
+
+    # -------------------------------------------------------- dynamic agents
+
+    def _load_dynamic_agents(self) -> None:
+        """Register user-added agent profiles persisted in .combinepro/agents.json."""
+        try:
+            profiles = json.loads(self._profiles_path.read_text("utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return
+        if not isinstance(profiles, list):
+            return
+        self._profiles = [p for p in profiles if isinstance(p, dict) and p.get("name")]
+        for profile in self._profiles:
+            try:
+                self._register_profile(profile)
+            except Exception:
+                log.exception("Could not register agent profile %r", profile.get("name"))
+
+    def apply_runtime_config(self, config: Config) -> None:
+        """Push editable knobs onto the live components (Settings → AI Models).
+
+        Every target is a plain mutable attribute and the router re-reads its
+        debounce at fire time, so changes take effect on the next event without
+        restarting anything.
+        """
+        self.config = config
+        self.router.debounce_seconds = config.debounce_seconds
+        self.skeletons.byte_cap = config.skeleton_byte_cap
+        self.skeletons.max_file_bytes = config.max_file_bytes
+        self.watcher.max_file_bytes = config.max_file_bytes
+        self.memory.set_base_url(config.sidecar_url)
+        log.info(
+            "Runtime config applied (debounce=%.2fs, skeleton_cap=%dB, max_file=%dB)",
+            config.debounce_seconds, config.skeleton_byte_cap, config.max_file_bytes,
+        )
+
+    def reload_agents(self, config: Config) -> dict[str, BaseAgent]:
+        """Rebuild every connector from a fresh Config, then re-register the
+        persisted user-added profiles. Used after keys/models change in Settings."""
+        self.config = config
+        self.agents = build_agents(config)
+        for name in self.agents:
+            self._agent_locks.setdefault(name, asyncio.Lock())
+        for profile in self._profiles:
+            try:
+                self._register_profile(profile)
+            except Exception:
+                log.exception("Could not re-register agent profile %r", profile.get("name"))
+        for name in self.agents:
+            self.bus.publish(
+                AgentStateChanged(agent_name=name, state="dormant", source="orchestrator")
+            )
+        log.info("Agents reloaded: %s", {n: a.provider for n, a in self.agents.items()})
+        return self.agents
+
+    def remove_agent(self, name: str) -> bool:
+        """Remove a user-added agent and clear any domain assigned to it.
+
+        Built-in agents (claude/openai/gemini) are key-driven and cannot be
+        removed here — disable them by clearing their key instead.
+        """
+        if name not in self.agents or name in AGENT_NAMES:
+            return False
+        self.agents.pop(name, None)
+        self._agent_locks.pop(name, None)
+        self._profiles = [p for p in self._profiles if p.get("name") != name]
+        self._profiles_path.parent.mkdir(parents=True, exist_ok=True)
+        self._profiles_path.write_text(json.dumps(self._profiles, indent=2), "utf-8")
+        for folder, owner in list(self.domain_map.assignments().items()):
+            if owner == name:
+                self.domain_map.assign(folder, "")
+        log.info("Removed agent '%s'", name)
+        return True
+
+    def add_agent(self, profile: dict) -> BaseAgent:
+        """Register a user-configured agent (Add New Agent dialog) and persist it."""
+        agent = self._register_profile(profile)
+        self._profiles = [p for p in self._profiles if p.get("name") != agent.name]
+        self._profiles.append(profile)
+        self._profiles_path.parent.mkdir(parents=True, exist_ok=True)
+        self._profiles_path.write_text(json.dumps(self._profiles, indent=2), "utf-8")
+        self.bus.publish(
+            AgentStateChanged(agent_name=agent.name, state="dormant", source="orchestrator")
+        )
+        log.info("Registered agent '%s' (%s, model=%s)", agent.name, agent.provider, agent.model)
+        return agent
+
+    def _register_profile(self, profile: dict) -> BaseAgent:
+        name = str(profile["name"])
+        provider = str(profile.get("provider", "custom"))
+        model = str(profile.get("model", ""))
+        env = {str(k): str(v) for k, v in dict(profile.get("env", {})).items()}
+
+        agent: BaseAgent
+        if provider == "openai" and env.get("OPENAI_API_KEY"):
+            agent = OpenAIAgent(name, model, env["OPENAI_API_KEY"])
+        elif provider == "anthropic" and env.get("ANTHROPIC_API_KEY"):
+            agent = ClaudeAgent(name, model, env["ANTHROPIC_API_KEY"])
+        elif provider == "gemini" and env.get("GEMINI_API_KEY"):
+            agent = GeminiAgent(name, model, env["GEMINI_API_KEY"])
+        elif env.get("LOCAL_BASE_URL"):
+            # Ollama / vLLM / any OpenAI-compatible server.
+            agent = OpenAIAgent(
+                name, model,
+                api_key=env.get("LOCAL_API_KEY") or "local",
+                base_url=env["LOCAL_BASE_URL"],
+            )
+        else:
+            agent = StubAgent(name, missing_key="a credential or LOCAL_BASE_URL")
+
+        self.agents[name] = agent
+        self._agent_locks.setdefault(name, asyncio.Lock())
+        return agent
 
     # ------------------------------------------------------------------ misc
 

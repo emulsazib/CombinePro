@@ -14,6 +14,20 @@ load_dotenv(ENV_PATH)
 AGENT_NAMES = ("claude", "openai", "gemini")
 
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, "") or default)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, "") or default)
+    except ValueError:
+        return default
+
+
 def update_env(values: dict[str, str]) -> None:
     """Persist key/value pairs to the repo `.env`, preserving other lines.
 
@@ -64,7 +78,8 @@ class Config:
     sidecar_url: str = field(default_factory=lambda: os.environ.get("SIDECAR_URL", "http://127.0.0.1:8787"))
     workspace: str = field(default_factory=lambda: os.environ.get("COMBINEPRO_WORKSPACE", ""))
 
-    # Token-optimization knobs
-    skeleton_byte_cap: int = 24_000
-    max_file_bytes: int = 512_000
-    debounce_seconds: float = 1.5
+    # Token-optimization knobs (editable live from Settings → AI Models)
+    skeleton_byte_cap: int = field(default_factory=lambda: _env_int("SKELETON_BYTE_CAP", 24_000))
+    max_file_bytes: int = field(default_factory=lambda: _env_int("MAX_FILE_BYTES", 512_000))
+    debounce_seconds: float = field(default_factory=lambda: _env_float("DEBOUNCE_SECONDS", 1.5))
+    editor_font_size: int = field(default_factory=lambda: _env_int("EDITOR_FONT_SIZE", 13))

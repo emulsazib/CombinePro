@@ -9,7 +9,7 @@ import html
 import os
 from pathlib import Path
 
-from PyQt6.QtCore import QProcess, Qt, pyqtSignal
+from PyQt6.QtCore import QProcess, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
     QFrame,
@@ -484,12 +484,23 @@ class LogTerminal(QWidget):
     Output lines from `append_line` (real logs) and typed shell commands share
     one monospace view. Commands run per-line via QProcess in the workspace
     directory; `cd` and `clear` are handled internally; up/down recall history.
+
+    Non-blocking by design: stdout/stderr stream in via readyRead* signals on
+    the Qt event loop, and the input line stays interactive while a process
+    runs — typed lines are piped to the process's stdin. `stop()` terminates
+    the process safely (SIGTERM, then SIGKILL after a grace period).
     """
+
+    process_started = pyqtSignal(str)   # command line
+    process_finished = pyqtSignal(int)  # exit code (-1 on crash/kill)
+
+    _KILL_GRACE_MS = 1500
 
     def __init__(self, title: str = "SYSTEM TERMINAL") -> None:
         super().__init__()
         self._cwd = Path.cwd()
         self._proc: QProcess | None = None
+        self._stopping = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -527,6 +538,27 @@ class LogTerminal(QWidget):
         self._refresh_prompt()
 
     # ------------------------------------------------------------- public API
+    @property
+    def is_running(self) -> bool:
+        return self._proc is not None and self._proc.state() != QProcess.ProcessState.NotRunning
+
+    def stop(self) -> None:
+        """Safely terminate the running process: SIGTERM now, SIGKILL if it is
+        still alive after the grace period. Never blocks the event loop."""
+        if not self.is_running:
+            return
+        self._stopping = True
+        proc = self._proc
+        self.append_line("stopping process…", theme.WARN)
+        proc.terminate()
+
+        def _force_kill() -> None:
+            if proc is self._proc and self.is_running:
+                self.append_line("process did not exit — killing.", theme.ERR)
+                proc.kill()
+
+        QTimer.singleShot(self._KILL_GRACE_MS, _force_kill)
+
     def set_cwd(self, path) -> None:  # noqa: ANN001
         p = Path(path)
         if p.is_dir():
@@ -544,15 +576,31 @@ class LogTerminal(QWidget):
     def append_raw(self, html_text: str) -> None:
         self._view.appendHtml(html_text)
 
+    def set_font_size(self, size: int) -> None:
+        """Resize the terminal's monospace font (Settings → General)."""
+        font = theme.mono_font(size)
+        self._view.setFont(font)
+        self._prompt.setFont(font)
+        self._input.setFont(font)
+
     # -------------------------------------------------------------- internals
     def _refresh_prompt(self) -> None:
         self._prompt.setText(f"{self._cwd.name or '/'} $")
 
     def _run(self) -> None:
-        cmd = self._input.text().strip()
+        text = self._input.text()
         self._input.clear()
-        if not cmd:
+        if not text.strip() and not self.is_running:
             return
+        # While a process runs the input line feeds its stdin, so interactive
+        # programs (input(), REPLs) keep working and the terminal never locks.
+        if self.is_running:
+            self._view.appendHtml(
+                f'<span style="color:{theme.SECONDARY};">&rsaquo; {html.escape(text)}</span>'
+            )
+            self._proc.write((text + "\n").encode())
+            return
+        cmd = text.strip()
         self._input.remember(cmd)
         self.run_command(cmd)
 
@@ -560,6 +608,9 @@ class LogTerminal(QWidget):
         """Programmatically run a command (used by the Run button)."""
         cmd = cmd.strip()
         if not cmd:
+            return
+        if self.is_running:
+            self.append_line("a process is already running — stop it first.", theme.WARN)
             return
         self._echo(cmd)
         if cmd == "clear":
@@ -592,38 +643,70 @@ class LogTerminal(QWidget):
             )
 
     def _start(self, cmd: str) -> None:
-        if self._proc is not None and self._proc.state() != QProcess.ProcessState.NotRunning:
-            self.append_line("a command is already running…", theme.WARN)
-            return
-        self._proc = QProcess(self)
-        self._proc.setWorkingDirectory(str(self._cwd))
-        self._proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        self._proc.readyReadStandardOutput.connect(self._read)
-        self._proc.finished.connect(self._finished)
-        self._proc.errorOccurred.connect(self._error)
-        self._input.setEnabled(False)
+        self._stopping = False
+        proc = QProcess(self)
+        proc.setWorkingDirectory(str(self._cwd))
+        # Separate channels: stdout streams as plain text, stderr renders in the
+        # error color. Both arrive via readyRead* slots on the Qt event loop —
+        # the UI thread is never blocked, no matter how chatty the process is.
+        proc.setProcessChannelMode(QProcess.ProcessChannelMode.SeparateChannels)
+        proc.readyReadStandardOutput.connect(self._read_stdout)
+        proc.readyReadStandardError.connect(self._read_stderr)
+        proc.finished.connect(self._finished)
+        proc.errorOccurred.connect(self._error)
+        self._proc = proc
+        self._input.setPlaceholderText("Process running — Enter sends to stdin; Stop terminates.")
+        self._prompt.setText("stdin ▸")
         shell = os.environ.get("SHELL", "/bin/bash")
-        self._proc.start(shell, ["-c", cmd])
+        proc.start(shell, ["-c", cmd])
+        self.process_started.emit(cmd)
 
-    def _read(self) -> None:
+    def _read_stdout(self) -> None:
         if self._proc is None:
             return
         data = bytes(self._proc.readAllStandardOutput()).decode("utf-8", "replace")
-        if data:
+        if data.strip("\n"):
             self._view.appendPlainText(data.rstrip("\n"))
 
+    def _read_stderr(self) -> None:
+        if self._proc is None:
+            return
+        data = bytes(self._proc.readAllStandardError()).decode("utf-8", "replace")
+        for line in data.rstrip("\n").splitlines():
+            self._view.appendHtml(
+                f'<span style="color:{theme.ERR};">{html.escape(line)}</span>'
+            )
+
     def _finished(self, code: int, _status) -> None:  # noqa: ANN001
-        self._read()
-        if code != 0:
+        self._read_stdout()
+        self._read_stderr()
+        if self._stopping:
+            self._view.appendHtml(
+                f'<span style="color:{theme.WARN};">[process stopped]</span>'
+            )
+        elif code != 0:
             self._view.appendHtml(
                 f'<span style="color:{theme.TEXT_FAINT};">[exit {code}]</span>'
             )
-        self._input.setEnabled(True)
-        self._input.setFocus()
+        self._reset_after_process()
+        self.process_finished.emit(-1 if self._stopping else code)
+        self._stopping = False
 
-    def _error(self, _err) -> None:  # noqa: ANN001
-        self.append_line("failed to launch command (shell unavailable)", theme.ERR)
-        self._input.setEnabled(True)
+    def _error(self, err) -> None:  # noqa: ANN001
+        # FailedToStart never reaches finished(); Crashed does. Only handle the
+        # launch failure here so lines aren't double-reported.
+        if err == QProcess.ProcessError.FailedToStart:
+            self.append_line("failed to launch command (shell unavailable)", theme.ERR)
+            self._reset_after_process()
+            self.process_finished.emit(-1)
+
+    def _reset_after_process(self) -> None:
+        self._proc = None
+        self._input.setPlaceholderText(
+            "Type a command (e.g. ls, git status, python -m pytest)…"
+        )
+        self._refresh_prompt()
+        self._input.setFocus()
 
 
 class PromptBar(QFrame):

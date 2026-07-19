@@ -1,46 +1,71 @@
-"""Settings view: [shared nav | settings categories | settings panels].
+"""Settings view: [shared nav | category rail | page stack].
 
-The API Configuration panel is **real** — it reads which provider keys are
-present (masked) and Save writes them to `.env` via `config.update_env`. The
-other categories are styled, honestly-labeled representative panels.
+A thin shell. Every page is real and lives in `settings_pages/`; this class only
+owns navigation and the callbacks that let pages reach live runtime state
+(agent roster, orchestrator knobs, memory client).
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from pathlib import Path
+
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QPushButton,
-    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from app import config as app_config
 from app.config import Config
-from app.ui import theme
-from app.ui.widgets import NavButton, NavSidebar, SectionHeader
+from app.core.orchestrator import Orchestrator
+from app.ui.views.settings_pages import (
+    AgentsPage,
+    ApiPage,
+    GeneralPage,
+    GitPage,
+    MemoryPage,
+    ModelsPage,
+    SessionStats,
+    UsagePage,
+)
+from app.ui.widgets import NavButton, NavSidebar
 
 _CATEGORIES = (
     ("api", "API Configuration"),
-    ("general", "General Settings"),
+    ("general", "General"),
     ("models", "AI Models"),
-    ("mcp", "MCP Servers"),
-    ("plugins", "Plugins & Extensions"),
+    ("agents", "Agents"),
+    ("memory", "Memory & MCP"),
     ("git", "Git & PRs"),
-    ("plan", "Plan & Usage"),
+    ("usage", "Usage & Diagnostics"),
 )
 
 
 class SettingsView(QWidget):
     view_requested = pyqtSignal(str)
+    # Raised when the agent roster changes so the main window can resync cards.
+    agents_changed = pyqtSignal()
+    # Raised when a page needs the app to reload Config from the environment.
+    config_reload_requested = pyqtSignal()
 
-    def __init__(self, config: Config) -> None:
+    def __init__(
+        self,
+        config: Config,
+        orchestrator: Orchestrator,
+        workspace: Path,
+        stats: SessionStats | None = None,
+    ) -> None:
         super().__init__()
         self.config = config
+        self.orchestrator = orchestrator
+        self.workspace = workspace
+        self.stats = stats or SessionStats()
+        # Set by MainWindow: () -> str|None opening the Add-Agent dialog.
+        self.add_agent_handler = None
+        # Set by MainWindow: (int) -> None applying an editor font size.
+        self.font_size_handler = None
 
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -56,14 +81,25 @@ class SettingsView(QWidget):
         self.stack = QStackedWidget()
         root.addWidget(self.stack, 1)
 
-        self._panels: dict[str, QWidget] = {}
-        self._panels["api"] = self._build_api_panel()
-        for key, label in _CATEGORIES:
-            if key == "api":
-                continue
-            self._panels[key] = self._build_static_panel(label)
+        self.api_page = ApiPage(config, self._reload_agents)
+        self.general_page = GeneralPage(config, workspace, self._apply_font_size)
+        self.models_page = ModelsPage(config, self._reload_agents, self._apply_knobs)
+        self.agents_page = AgentsPage(orchestrator, self._add_agent, self._remove_agent)
+        self.memory_page = MemoryPage(config, orchestrator)
+        self.git_page = GitPage(workspace)
+        self.usage_page = UsagePage(config, orchestrator, workspace, self.stats)
+
+        self._pages = {
+            "api": self.api_page,
+            "general": self.general_page,
+            "models": self.models_page,
+            "agents": self.agents_page,
+            "memory": self.memory_page,
+            "git": self.git_page,
+            "usage": self.usage_page,
+        }
         for key, _ in _CATEGORIES:
-            self.stack.addWidget(self._panels[key])
+            self.stack.addWidget(self._pages[key])
 
         self._select("api")
 
@@ -80,17 +116,17 @@ class SettingsView(QWidget):
         hb = QVBoxLayout(head)
         hb.setContentsMargins(16, 18, 16, 12)
         hb.setSpacing(2)
-        who = QLabel("Nexus Identity")
-        who.setStyleSheet(f"color:{theme.TEXT}; font-weight:600;")
+        who = QLabel("CombinePro Identity")
+        who.setStyleSheet("font-weight:600;")
         hb.addWidget(who)
-        plan = QLabel("ENTERPRISE PLAN")
+        plan = QLabel("LOCAL WORKSPACE")
         plan.setProperty("caps", True)
         hb.addWidget(plan)
         v.addWidget(head)
 
         self._cat_buttons: dict[str, NavButton] = {}
         for key, label in _CATEGORIES:
-            btn = NavButton("\u2022", label)
+            btn = NavButton("•", label)
             btn.clicked.connect(lambda _=False, k=key: self._select(k))
             v.addWidget(btn)
             self._cat_buttons[key] = btn
@@ -99,185 +135,55 @@ class SettingsView(QWidget):
 
     def _select(self, key: str) -> None:
         keys = [k for k, _ in _CATEGORIES]
+        if key not in keys:
+            return
         self.stack.setCurrentIndex(keys.index(key))
         for k, btn in self._cat_buttons.items():
             btn.set_active(k == key)
+        # Pages that show live state refresh on entry.
+        if key == "agents":
+            self.agents_page.refresh()
+        elif key == "usage":
+            self.usage_page.refresh()
 
-    # ------------------------------------------------------------- API panel
-    def _build_api_panel(self) -> QWidget:
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        body = QWidget()
-        layout = QVBoxLayout(body)
-        layout.setContentsMargins(32, 28, 32, 28)
-        layout.setSpacing(18)
-        scroll.setWidget(body)
+    # ------------------------------------------------------------- page hooks
+    def _fresh_config(self) -> Config:
+        """Rebuild Config from the (just-updated) environment and push it to the
+        pages that hold a reference, so Revert and status reads stay accurate."""
+        self.config = Config()
+        for page in (self.api_page, self.general_page, self.models_page,
+                     self.memory_page, self.usage_page):
+            page.config = self.config
+        return self.config
 
-        title = QLabel("API Configuration")
-        title.setObjectName("h1")
-        layout.addWidget(title)
-        subtitle = QLabel("Provider keys are stored in .env. Leave a field blank to keep the current key.")
-        subtitle.setProperty("muted", True)
-        layout.addWidget(subtitle)
+    def _reload_agents(self) -> list[str]:
+        config = self._fresh_config()
+        agents = self.orchestrator.reload_agents(config)
+        self.agents_page.refresh()
+        self.agents_changed.emit()
+        return list(agents)
 
-        card = QFrame()
-        card.setObjectName("panelCard")
-        cv = QVBoxLayout(card)
-        cv.setContentsMargins(24, 24, 24, 24)
-        cv.setSpacing(18)
+    def _apply_knobs(self) -> None:
+        self.orchestrator.apply_runtime_config(self._fresh_config())
 
-        self._fields: dict[str, QLineEdit] = {}
-        specs = (
-            ("OPENAI_API_KEY", "OpenAI API Key", self.config.openai_api_key),
-            ("ANTHROPIC_API_KEY", "Anthropic API Key", self.config.anthropic_api_key),
-            ("GEMINI_API_KEY", "Google API Key", self.config.gemini_api_key),
-        )
-        for env_key, label, current in specs:
-            cv.addLayout(self._key_field(env_key, label, current))
-        layout.addWidget(card)
+    def _apply_font_size(self, size: int) -> None:
+        if self.font_size_handler is not None:
+            self.font_size_handler(size)
 
-        actions = QHBoxLayout()
-        actions.addStretch(1)
-        cancel = QPushButton("Cancel")
-        cancel.setProperty("variant", "ghost")
-        cancel.clicked.connect(self._reset_fields)
-        save = QPushButton("\U0001f4be  Save Config")
-        save.setProperty("variant", "primary")
-        save.clicked.connect(self._save)
-        actions.addWidget(cancel)
-        actions.addWidget(save)
-        layout.addLayout(actions)
+    def _add_agent(self) -> str | None:
+        if self.add_agent_handler is None:
+            return None
+        name = self.add_agent_handler()
+        if name:
+            self.agents_changed.emit()
+        return name
 
-        self._save_note = QLabel("")
-        self._save_note.setProperty("muted", True)
-        layout.addWidget(self._save_note)
+    def _remove_agent(self, name: str) -> bool:
+        removed = self.orchestrator.remove_agent(name)
+        if removed:
+            self.agents_changed.emit()
+        return removed
 
-        layout.addStretch(1)
-        return scroll
-
-    def _key_field(self, env_key: str, label: str, current: str):
-        box = QVBoxLayout()
-        box.setSpacing(6)
-        header = QHBoxLayout()
-        header.addWidget(SectionHeader(label))
-        header.addStretch(1)
-        status = QLabel("● Configured" if current else "○ Not set")
-        status.setStyleSheet(
-            f"color:{theme.OK if current else theme.TEXT_FAINT}; font-size:11px; font-weight:600;"
-        )
-        header.addWidget(status)
-        box.addLayout(header)
-
-        row = QHBoxLayout()
-        row.setSpacing(6)
-        field = QLineEdit()
-        field.setEchoMode(QLineEdit.EchoMode.Password)
-        field.setPlaceholderText(app_config.masked(current) or "Enter API key…")
-        row.addWidget(field, 1)
-        eye = QPushButton("\U0001f441")
-        eye.setProperty("variant", "ghost")
-        eye.setCheckable(True)
-        eye.setFixedWidth(40)
-        eye.toggled.connect(
-            lambda on, f=field: f.setEchoMode(
-                QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password
-            )
-        )
-        row.addWidget(eye)
-        box.addLayout(row)
-        self._fields[env_key] = field
-        return box
-
-    def _reset_fields(self) -> None:
-        for field in self._fields.values():
-            field.clear()
-        self._save_note.setText("Changes discarded.")
-
-    def _save(self) -> None:
-        values = {k: f.text().strip() for k, f in self._fields.items() if f.text().strip()}
-        if not values:
-            self._save_note.setText("No new keys entered — nothing to save.")
-            return
-        try:
-            app_config.update_env(values)
-        except OSError as exc:
-            self._save_note.setStyleSheet(f"color:{theme.ERR};")
-            self._save_note.setText(f"Failed to write .env: {exc}")
-            return
-        for field in self._fields.values():
-            field.clear()
-        self._save_note.setStyleSheet(f"color:{theme.OK};")
-        self._save_note.setText(
-            f"Saved {len(values)} key(s) to .env. Restart CombinePro to activate the connectors."
-        )
-
-    # ----------------------------------------------------------- static panels
-    def _build_static_panel(self, label: str) -> QWidget:
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        body = QWidget()
-        layout = QVBoxLayout(body)
-        layout.setContentsMargins(32, 28, 32, 28)
-        layout.setSpacing(16)
-        scroll.setWidget(body)
-
-        title = QLabel(label)
-        title.setObjectName("h1")
-        layout.addWidget(title)
-
-        layout.addWidget(SectionHeader("Preferences"))
-        rows = {
-            "General Settings": [
-                ("Editor Settings", "Configure font, formatting, minimap, and terminal behavior", "Open"),
-                ("Keyboard Shortcuts", "Customize keybindings and hotkeys", "Edit"),
-                ("Import from VS Code", "Sync extensions, settings, and workspace data", "Import"),
-            ],
-            "AI Models": [
-                ("Default Model", "Model used for new agent domains", "Change"),
-                ("Token Budget", "Per-wake skeleton + file byte caps", "Edit"),
-            ],
-            "MCP Servers": [("knbase Sidecar", "Local Delta Memory server (SIDECAR_URL)", "Open")],
-            "Plugins & Extensions": [("Marketplace", "Browse and install extensions", "Browse")],
-            "Git & PRs": [("Repository", "Link a Git remote and manage pull requests", "Connect")],
-            "Plan & Usage": [("Enterprise Plan", "Seats, usage, and billing", "Manage")],
-        }.get(label, [("Coming soon", "This section is representative in the UI shell.", "")])
-
-        card = QFrame()
-        card.setObjectName("panelCard")
-        cv = QVBoxLayout(card)
-        cv.setContentsMargins(0, 0, 0, 0)
-        cv.setSpacing(0)
-        for i, (name, desc, action) in enumerate(rows):
-            cv.addWidget(self._setting_row(name, desc, action, last=i == len(rows) - 1))
-        layout.addWidget(card)
-
-        note = QLabel("Representative panel — styled to the Obsidian Logic system; not yet wired.")
-        note.setProperty("muted", True)
-        layout.addWidget(note)
-        layout.addStretch(1)
-        return scroll
-
-    def _setting_row(self, name: str, desc: str, action: str, last: bool) -> QWidget:
-        row = QFrame()
-        if not last:
-            row.setStyleSheet(f"border-bottom:1px solid {theme.BORDER};")
-        h = QHBoxLayout(row)
-        h.setContentsMargins(20, 16, 20, 16)
-        h.setSpacing(12)
-        text = QVBoxLayout()
-        text.setSpacing(2)
-        title = QLabel(name)
-        title.setStyleSheet(f"color:{theme.TEXT}; font-weight:600; border:none;")
-        text.addWidget(title)
-        d = QLabel(desc)
-        d.setStyleSheet(f"color:{theme.TEXT_MUTED}; border:none;")
-        text.addWidget(d)
-        h.addLayout(text, 1)
-        if action:
-            btn = QPushButton(action)
-            btn.setProperty("variant", "ghost")
-            btn.setEnabled(False)
-            h.addWidget(btn, alignment=Qt.AlignmentFlag.AlignVCenter)
-        return row
+    # ------------------------------------------------------------ live updates
+    def set_sidecar_health(self, healthy: bool, detail: str = "") -> None:
+        self.memory_page.set_health(healthy, detail)

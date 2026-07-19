@@ -24,6 +24,7 @@ _MAX_ACTIVITY = 40
 
 class ClusterView(QWidget):
     view_requested = pyqtSignal(str)
+    add_agent_requested = pyqtSignal()
 
     def __init__(self, orchestrator: Orchestrator) -> None:
         super().__init__()
@@ -97,8 +98,8 @@ class ClusterView(QWidget):
         row.addStretch(1)
         add = QPushButton("\u2295  Add New Agent")
         add.setProperty("variant", "primary")
-        add.setEnabled(False)
-        add.setToolTip("Representative — agent roster is defined by API keys in Settings.")
+        add.setToolTip("Configure and register a commercial or local LLM agent.")
+        add.clicked.connect(self.add_agent_requested)
         row.addWidget(add)
         self._body.addLayout(row)
 
@@ -178,6 +179,15 @@ class ClusterView(QWidget):
             w = item.widget()
             if w is not None:
                 w.deleteLater()
+
+    def add_agent_card(self, name: str, provider: str) -> None:
+        """Append a card for a newly registered (user-added) agent."""
+        if name in self.agent_cards:
+            return
+        card = AgentCard(name, provider, compact=False, domain=self._domain_for(name))
+        card.configure_clicked.connect(lambda n: self.view_requested.emit("settings"))
+        self.agent_cards[name] = card
+        self._grid.addWidget(card)
 
     # ----------------------------------------------------------------- update
     def set_active_count(self, active: int) -> None:

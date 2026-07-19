@@ -40,6 +40,7 @@ from app.ui import theme
 from app.ui.activity_dock import _event_color, describe
 from app.ui.log_bridge import QtLogBridge
 from app.ui.views import ClusterView, SettingsView, WorkspaceView
+from app.ui.views.settings_pages import SessionStats
 from app.ui.widgets import StatusPill, dot
 
 log = logging.getLogger(__name__)
@@ -65,10 +66,14 @@ class MainWindow(QMainWindow):
 
         self._build_topbar()
 
+        self.stats = SessionStats()
         self.stack = QStackedWidget()
         self.workspace_view = WorkspaceView(workspace, orchestrator)
         self.cluster_view = ClusterView(orchestrator)
-        self.settings_view = SettingsView(config)
+        self.settings_view = SettingsView(config, orchestrator, workspace, self.stats)
+        self.settings_view.add_agent_handler = self._add_agent_via_dialog
+        self.settings_view.font_size_handler = self._apply_editor_font
+        self.settings_view.agents_changed.connect(self._sync_agent_widgets)
         for view in (self.workspace_view, self.cluster_view, self.settings_view):
             self.stack.addWidget(view)
             view.view_requested.connect(self._switch_view)
@@ -79,6 +84,13 @@ class MainWindow(QMainWindow):
 
         self.workspace_view.prompt_bar.submitted.connect(self._on_prompt)
         self.workspace_view.editor.file_saved.connect(self._on_saved)
+        self.workspace_view.terminal.process_started.connect(
+            lambda _cmd: self._set_run_state(running=True)
+        )
+        self.workspace_view.terminal.process_finished.connect(
+            lambda _code: self._set_run_state(running=False)
+        )
+        self.cluster_view.add_agent_requested.connect(self._on_add_agent)
 
         # Real orchestrator logs → the workspace terminal.
         self._log_bridge = QtLogBridge()
@@ -135,6 +147,9 @@ class MainWindow(QMainWindow):
         self._run_btn.setToolTip("Run the open file and show output in the System Terminal.")
         self._run_btn.clicked.connect(self._on_run)
         bar.addWidget(self._run_btn)
+        # Stateful Run/Stop toggle: any process in the System Terminal (Run
+        # button or typed command) flips the button to a red Stop.
+        self._set_run_state(running=False)
 
         sync = QPushButton("\u21bb  Sync")
         sync.setProperty("variant", "ghost")
@@ -179,6 +194,7 @@ class MainWindow(QMainWindow):
 
     def _init_agents(self) -> None:
         for name, agent in self.orchestrator.agents.items():
+            theme.ensure_agent_color(name)
             desc = ("Dormant — set the provider key in Settings to enable."
                     if agent.provider == "stub" else "Dormant — awaiting a task.")
             self.workspace_view.agent_cards[name].set_state("IDLE", desc)
@@ -218,8 +234,25 @@ class MainWindow(QMainWindow):
     def _on_saved(self, path: str) -> None:
         self.workspace_view.terminal.append_line(f"saved {path}", theme.OK)
 
+    def _set_run_state(self, running: bool) -> None:
+        """Flip the top-bar button between '▶ Run' (green) and '■ Stop' (red)."""
+        if running:
+            self._run_btn.setText("■  Stop")
+            self._run_btn.setProperty("variant", "danger")
+            self._run_btn.setToolTip("Terminate the running process (SIGTERM, then SIGKILL).")
+        else:
+            self._run_btn.setText("▶  Run")
+            self._run_btn.setProperty("variant", "primary")
+            self._run_btn.setToolTip("Run the open file and show output in the System Terminal.")
+        self._run_btn.style().unpolish(self._run_btn)
+        self._run_btn.style().polish(self._run_btn)
+
     def _on_run(self) -> None:
-        """Run the currently open file, streaming output to the System Terminal."""
+        """Toggle: start the open file, or stop the process already running."""
+        terminal = self.workspace_view.terminal
+        if terminal.is_running:
+            terminal.stop()
+            return
         self._switch_view("explorer")
         viewer = self.workspace_view.editor.current_viewer()
         if viewer is None or viewer.current_abs is None:
@@ -256,6 +289,66 @@ class MainWindow(QMainWindow):
         if suffix == ".rb":
             return f"ruby {p}"
         return None
+
+    def _on_add_agent(self) -> None:
+        """Cluster-page button → shared Add-Agent flow."""
+        self._add_agent_via_dialog()
+
+    def _add_agent_via_dialog(self) -> str | None:
+        """Open the dynamic agent-onboarding dialog and register the result.
+
+        Shared by the Agents page and the cluster overview; returns the new
+        agent's name (or None if cancelled).
+        """
+        from app.ui.agent_dialog import AddAgentDialog
+
+        dlg = AddAgentDialog(existing=set(self.orchestrator.agents), parent=self)
+        if not dlg.exec():
+            return None
+        profile = dlg.profile()
+        theme.ensure_agent_color(profile["name"])
+        agent = self.orchestrator.add_agent(profile)
+
+        self._sync_agent_widgets()
+        self.cluster_view.add_activity(
+            "REGISTERED", theme.OK,
+            f"{agent.name} added ({profile['kind']} · {profile['provider']} · {profile['model']})",
+        )
+        self.workspace_view.terminal.append_line(
+            f"agent '{agent.name}' registered ({profile['provider']}, model {profile['model']})",
+            theme.OK,
+        )
+        return agent.name
+
+    def _sync_agent_widgets(self) -> None:
+        """Reconcile the cluster/workspace agent cards with the live roster."""
+        live = self.orchestrator.agents
+        for name, agent in live.items():
+            theme.ensure_agent_color(name)
+            self.cluster_view.add_agent_card(name, agent.provider)
+            self.workspace_view.add_agent_card(name, agent.provider)
+            desc = ("Dormant — set the provider key in Settings to enable."
+                    if agent.provider == "stub" else "Dormant — awaiting a task.")
+            state = "ACTIVE" if name in self._awake else "IDLE"
+            self.workspace_view.agent_cards[name].set_state(state, desc)
+            self.cluster_view.agent_cards[name].set_state(state)
+        for view in (self.cluster_view, self.workspace_view):
+            for stale in [n for n in view.agent_cards if n not in live]:
+                card = view.agent_cards.pop(stale)
+                card.setParent(None)
+                card.deleteLater()
+        self._awake &= set(live)
+        self.cluster_view.set_active_count(len(self._awake))
+        self.cluster_view.refresh_domains()
+        self._agents_label.setText(f"{len(live)} agents")
+
+    def _apply_editor_font(self, size: int) -> None:
+        """Apply a code font size to every open viewer and the terminal."""
+        font = theme.mono_font(size)
+        for viewer in self.workspace_view.editor.viewers():
+            viewer.setFont(font)
+        self.workspace_view.terminal.set_font_size(size)
+        self.workspace_view.terminal.append_line(f"editor font size set to {size}px", theme.INFO)
 
     def _sync_workspace(self) -> None:
         model = self.workspace_view._fs_model
@@ -305,6 +398,7 @@ class MainWindow(QMainWindow):
 
     def _on_event(self, event: Event) -> None:
         self._route_activity(event)
+        self._count_event(event)
 
         if isinstance(event, FileDelta):
             if (event.change_type == "modified" and event.diff
@@ -364,11 +458,31 @@ class MainWindow(QMainWindow):
 
         elif isinstance(event, SidecarStatus):
             self._sidecar_pill.set_healthy(event.healthy, event.detail)
+            self.settings_view.set_sidecar_health(event.healthy, event.detail)
 
         elif isinstance(event, MemoryWritten):
             self.workspace_view.terminal.append_line(
                 f"memory delta written (task {event.task_id})", theme.TEAL
             )
+
+    def _count_event(self, event: Event) -> None:
+        """Feed the Usage & Diagnostics counters."""
+        stats = self.stats
+        if isinstance(event, TaskRequest):
+            stats.wakes += 1
+        elif isinstance(event, AgentResult):
+            if event.ok:
+                stats.results_ok += 1
+            else:
+                stats.results_failed += 1
+        elif isinstance(event, FileDelta):
+            stats.deltas += 1
+        elif isinstance(event, MemoryWritten):
+            stats.memory_writes += 1
+        elif isinstance(event, CrossDomainSignal):
+            stats.signals += 1
+        elif isinstance(event, DomainAssigned):
+            stats.domains = len(self.orchestrator.domain_map.assignments())
 
     def _route_activity(self, event: Event) -> None:
         cluster = self.cluster_view
@@ -407,4 +521,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: ANN001
         self._log_bridge.uninstall()
+        # Stop child processes so nothing is destroyed mid-flight.
+        self.workspace_view.terminal.stop()
+        self.settings_view.git_page.shutdown()
         super().closeEvent(event)

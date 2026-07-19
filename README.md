@@ -76,17 +76,43 @@ cd sidecar && npm start          # listens on http://127.0.0.1:8787
 On first launch you'll be asked to choose a **workspace folder** (or set
 `COMBINEPRO_WORKSPACE` in `.env`). Then:
 
-1. Select a folder in the file tree, pick an agent in the **Agent Domains**
-   dock, and click *Assign to selected folder*.
-2. Edit any source file in that folder (in your normal editor). Watch the
-   **Activity** dock: delta → router wake → agent result → memory write.
-3. If the changed file is open in the viewer, it flips to a colored unified
-   diff automatically (Debug → *Return viewer to file mode* to go back).
-4. Debug → *Simulate cross-domain signal…* demonstrates the cross-domain
-   protocol without needing a second live agent.
+1. **Assign domains** — right-click a folder in the Explorer file tree →
+   *Assign Agent* → pick an agent. Assignments show on the Agents page.
+2. **Watch the pipeline** — edit any source file in an assigned folder (in any
+   editor): delta → router wake → agent result stream into the AI Thought
+   Stream, System Terminal, and Recent Activity.
+3. **Prompt agents** — the ⚡ bar under the editor wakes the real agents with
+   your instruction (routed per domain assignments).
+4. **Run / Stop** — the top-bar ▶ Run button executes the open file, streaming
+   output into the System Terminal; it toggles to a red ■ Stop that terminates
+   the process safely (SIGTERM, then SIGKILL after 1.5 s). The terminal input
+   line stays interactive while a process runs — typed lines go to its stdin —
+   and it doubles as a shell (`ls`, `git status`, `cd`, `clear`, history keys).
+5. **Add agents** — Agents page → *⊕ Add New Agent*: pick Commercial
+   (OpenAI / Anthropic / Gemini) or Local (Ollama / vLLM / custom
+   OpenAI-compatible), fill the key-value env grid (`KEY=value` pastes are
+   split automatically; secrets are masked), and *Save Agent*. Profiles persist
+   in `<workspace>/.combinepro/agents.json` and reload on startup; local
+   endpoints run through the OpenAI-compatible connector
+   (e.g. `LOCAL_BASE_URL=http://localhost:11434/v1` for Ollama).
 
 Allocations persist in `<workspace>/.combinepro/domains.json`; knbase state
 lives in `<workspace>/.knbase/` and `<workspace>/memory-bank/`.
+
+## Settings
+
+All seven Settings pages are live. Saving writes to `.env` **and** applies
+immediately — only a workspace change needs a restart.
+
+| Page | What it does |
+|---|---|
+| **API Configuration** | Provider keys (masked, reveal toggle). Saving reloads the connectors in place. |
+| **General** | Workspace folder (restart-scoped) and editor font size (applies live to open viewers + terminal). |
+| **AI Models** | Per-provider model IDs and the token knobs — AST skeleton cap, max file size, router debounce — pushed onto the running orchestrator. |
+| **Agents** | The live roster with provider/model/domain. Add agents via the dialog; user-added ones can be removed (which clears their domains). Built-ins are key-driven. |
+| **Memory & MCP** | Sidecar URL (live-applied) plus a real *Test Connection* showing knbase session state, governance status and the latest log entries. |
+| **Git & PRs** | Real repo state for the workspace — branch, remote, working tree, recent commits — read non-blocking via the `git` CLI. |
+| **Usage & Diagnostics** | Live session counters (wakes, results, deltas, memory writes, signals) and the running environment. |
 
 ## Repository layout
 
@@ -94,11 +120,14 @@ lives in `<workspace>/.knbase/` and `<workspace>/memory-bank/`.
 |---|---|
 | `sidecar/server.js` | Express REST wrapper over knbase (`/init`, `/session/start`, `/context`, `/task/*`, `/log`, `/governance/:key`) |
 | `app/main.py` | Entry point — qasync merges the Qt and asyncio loops |
+| `AppIcons/` | Application icon source (16–1024px set, loaded by `app/ui/icons.py`) |
 | `app/core/` | Event bus, typed events, rule-based router, domain map, per-file lock registry, orchestrator |
 | `app/agents/` | `BaseAgent` contract + Claude / OpenAI / Gemini / stub connectors |
 | `app/context/` | tree-sitter AST skeletons + watchdog delta watcher |
 | `app/memory/` | Async HTTP client for the sidecar |
-| `app/ui/` | Main window, code viewer (highlight + diff), domain dock, activity feed |
+| `app/ui/` | Main window, code viewer (highlight + diff), agent dialog, activity feed |
+| `app/ui/views/` | The three top-level views: Explorer workspace, Agents cluster, Settings |
+| `app/ui/views/settings_pages/` | The seven Settings pages (API, General, AI Models, Agents, Memory & MCP, Git & PRs, Usage & Diagnostics) |
 
 ## Notes & next steps
 

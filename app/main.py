@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import QApplication, QFileDialog
 
 from app.config import Config
 from app.core.orchestrator import Orchestrator
+from app.ui.icons import app_icon
 from app.ui.main_window import MainWindow
 from app.ui.theme import apply_theme
 
@@ -58,6 +59,8 @@ def main() -> int:
 
     app = QApplication(sys.argv)
     app.setApplicationName("CombinePro")
+    # Default icon for every top-level window and dialog.
+    app.setWindowIcon(app_icon())
     apply_theme(app)
 
     workspace = resolve_workspace(app, config)

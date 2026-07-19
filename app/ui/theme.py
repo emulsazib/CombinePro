@@ -81,6 +81,17 @@ def agent_color(name: str) -> str:
     return AGENT_COLORS.get(name, AGENT_FALLBACK)
 
 
+# Colors handed out to user-added agents, in registration order.
+_EXTRA_AGENT_COLORS = ("#56ffa7", "#d8e2ff", "#e4c44f", "#ffb4ab", "#0566d9")
+
+
+def ensure_agent_color(name: str) -> str:
+    """Return the agent's color, assigning a palette color on first sight."""
+    if name not in AGENT_COLORS:
+        AGENT_COLORS[name] = _EXTRA_AGENT_COLORS[len(AGENT_COLORS) % len(_EXTRA_AGENT_COLORS)]
+    return AGENT_COLORS[name]
+
+
 def state_color(state: str) -> str:
     return STATE_COLORS.get(state.upper(), TEXT_FAINT)
 
@@ -193,6 +204,13 @@ def build_stylesheet() -> str:
     /* ghost (1px border, transparent fill) */
     QPushButton[variant="ghost"] {{ background: transparent; border: 1px solid {BORDER}; color: {TEXT_MUTED}; }}
     QPushButton[variant="ghost"]:hover {{ color: {TEXT}; border-color: {BORDER_STRONG}; background: {BG_HIGH}; }}
+
+    /* danger (error container — the Run button while a process is running) */
+    QPushButton[variant="danger"] {{
+        background: {ERR_CONTAINER}; color: {ERR}; border: 1px solid {ERR};
+    }}
+    QPushButton[variant="danger"]:hover {{ background: {ERR}; color: {ERR_CONTAINER}; }}
+    QPushButton[variant="danger"]:pressed {{ background: {ERR_CONTAINER}; color: {ERR}; }}
 
     /* =============================== nav sidebar ========================== */
     QFrame#navSidebar {{ background: {BG_SURFACE}; border-right: 1px solid {BORDER}; }}

@@ -22,7 +22,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.config import AGENT_NAMES
 from app.core.orchestrator import Orchestrator
 from app.ui import theme
 from app.ui.editor_tabs import EditorTabs
@@ -135,14 +134,14 @@ class WorkspaceView(QWidget):
         rv.addWidget(header)
 
         cards_wrap = QWidget()
-        cv = QVBoxLayout(cards_wrap)
-        cv.setContentsMargins(12, 12, 12, 12)
-        cv.setSpacing(10)
+        self._cards_layout = QVBoxLayout(cards_wrap)
+        self._cards_layout.setContentsMargins(12, 12, 12, 12)
+        self._cards_layout.setSpacing(10)
         self.agent_cards: dict[str, AgentCard] = {}
         for name, agent in self.orchestrator.agents.items():
             card = AgentCard(name, agent.provider, compact=True)
             self.agent_cards[name] = card
-            cv.addWidget(card)
+            self._cards_layout.addWidget(card)
         rv.addWidget(cards_wrap)
 
         stream_header = QLabel("  AI THOUGHT STREAM")
@@ -183,7 +182,7 @@ class WorkspaceView(QWidget):
             return
         menu = QMenu(self)
         assign = menu.addMenu("Assign Agent")
-        for name in AGENT_NAMES:
+        for name in self.orchestrator.agents:  # includes user-added agents
             act = QAction(name, self)
             act.triggered.connect(lambda _=False, n=name, f=rel: self._assign(f, n))
             assign.addAction(act)
@@ -201,6 +200,14 @@ class WorkspaceView(QWidget):
             return "" if rel == "." else rel
         except ValueError:
             return None
+
+    def add_agent_card(self, name: str, provider: str) -> None:
+        """Append a compact cluster card for a newly registered agent."""
+        if name in self.agent_cards:
+            return
+        card = AgentCard(name, provider, compact=True)
+        self.agent_cards[name] = card
+        self._cards_layout.addWidget(card)
 
     def current_path(self) -> str | None:
         return self.editor.current_path()

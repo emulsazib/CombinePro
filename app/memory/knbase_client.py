@@ -6,6 +6,7 @@ SidecarError so callers can continue without memory when the sidecar is down.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -20,10 +21,28 @@ class SidecarError(RuntimeError):
 
 class KnbaseClient:
     def __init__(self, base_url: str) -> None:
+        self.base_url = base_url
         self._client = httpx.AsyncClient(base_url=base_url, timeout=10.0)
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    def set_base_url(self, base_url: str) -> None:
+        """Point the client at a different sidecar (Settings → Memory & MCP).
+
+        The old client is closed in the background so the swap is synchronous
+        for callers and never blocks the UI thread.
+        """
+        base_url = base_url.strip().rstrip("/")
+        if not base_url or base_url == self.base_url:
+            return
+        old = self._client
+        self.base_url = base_url
+        self._client = httpx.AsyncClient(base_url=base_url, timeout=10.0)
+        try:
+            asyncio.get_running_loop().create_task(old.aclose())
+        except RuntimeError:
+            pass  # no loop (tests) — the old client is garbage-collected
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
         try:

@@ -102,6 +102,13 @@ class EditorTabs(QWidget):
         widget = self._stack.currentWidget()
         return widget if isinstance(widget, CodeViewer) else None
 
+    def viewers(self) -> list[CodeViewer]:
+        """Every open code viewer (used to apply the editor font size live)."""
+        return [
+            w for i in range(self._stack.count())
+            if isinstance(w := self._stack.widget(i), CodeViewer)
+        ]
+
     def current_path(self) -> str | None:
         idx = self._bar.currentIndex()
         if 0 <= idx < len(self._keys):
