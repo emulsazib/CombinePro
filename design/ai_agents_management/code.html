@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nexus IDE | AI Agents Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;450;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .agent-card-hover:hover {
+            border-color: #00e38a; /* primary-fixed-dim */
+            background-color: #1e2024; /* surface-container */
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #111317;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #3b4b3f;
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #00e38a;
+        }
+        /* IDE Splitter Handle Mockup */
+        .v-splitter {
+            width: 1px;
+            cursor: col-resize;
+            transition: background-color 0.2s;
+        }
+        .v-splitter:hover {
+            background-color: #00e38a;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#231b00",
+                        "inverse-primary": "#006d40",
+                        "surface-dim": "#111317",
+                        "error": "#ffb4ab",
+                        "secondary-fixed": "#d8e2ff",
+                        "on-secondary-container": "#e6ecff",
+                        "surface-tint": "#00e38a",
+                        "outline-variant": "#3b4b3f",
+                        "on-tertiary": "#3b2f00",
+                        "surface-container-high": "#282a2e",
+                        "on-primary": "#00391f",
+                        "primary-container": "#00ff9c",
+                        "on-error-container": "#ffdad6",
+                        "primary": "#f3fff3",
+                        "on-surface": "#e2e2e8",
+                        "tertiary-container": "#ffdd65",
+                        "on-primary-container": "#007142",
+                        "on-secondary-fixed": "#001a42",
+                        "surface-container": "#1e2024",
+                        "background": "#111317",
+                        "on-primary-fixed-variant": "#00522f",
+                        "tertiary-fixed-dim": "#e4c44f",
+                        "on-surface-variant": "#b9cbbc",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-tertiary-container": "#766000",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#0c0e12",
+                        "surface": "#111317",
+                        "tertiary-fixed": "#ffe17a",
+                        "surface-bright": "#37393e",
+                        "secondary": "#adc6ff",
+                        "primary-fixed": "#56ffa7",
+                        "surface-container-low": "#1a1c20",
+                        "on-secondary-fixed-variant": "#004395",
+                        "inverse-on-surface": "#2f3035",
+                        "on-background": "#e2e2e8",
+                        "outline": "#849587",
+                        "tertiary": "#fffaff",
+                        "surface-container-highest": "#333539",
+                        "secondary-container": "#0566d9",
+                        "inverse-surface": "#e2e2e8",
+                        "on-error": "#690005",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "primary-fixed-dim": "#00e38a",
+                        "on-secondary": "#002e6a",
+                        "surface-variant": "#333539",
+                        "on-primary-fixed": "#002110"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-padding": "12px",
+                        "gutter": "8px",
+                        "unit": "4px",
+                        "sidebar-width": "260px",
+                        "panel-gap": "1px"
+                    },
+                    "fontFamily": {
+                        "code-md": ["JetBrains+Mono"],
+                        "h2": ["Inter"],
+                        "code-sm": ["JetBrains+Mono"],
+                        "h1": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "code-md": ["13px", {"lineHeight": "20px", "fontWeight": "450"}],
+                        "h2": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "code-sm": ["11px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "h1": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-caps": ["10px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container overflow-hidden">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-gutter w-full fixed top-0 z-50 h-12 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-4">
+<h2 class="font-h2 text-h2 text-on-surface tracking-tight">Nexus IDE</h2>
+<div class="h-6 w-px bg-outline-variant mx-2"></div>
+<nav class="flex gap-4 font-label-caps text-label-caps items-center">
+<a class="text-on-surface-variant hover:text-primary-container cursor-pointer active:opacity-80">Project</a>
+<a class="text-on-surface-variant hover:text-primary-container cursor-pointer active:opacity-80">Build</a>
+<a class="text-on-surface-variant hover:text-primary-container cursor-pointer active:opacity-80">Debug</a>
+</nav>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center bg-surface-container-high px-3 py-1 rounded border border-outline-variant">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-code-sm font-code-sm w-48 text-on-surface" placeholder="Search commands..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex items-center gap-1 px-3 py-1 bg-surface-container-highest text-on-surface border border-outline-variant hover:text-primary-container transition-colors font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[16px]">cloud_done</span>
+                    Sync
+                </button>
+<button class="flex items-center gap-1 px-3 py-1 bg-primary-container text-on-primary-container font-label-caps text-label-caps hover:brightness-110 active:opacity-80">
+<span class="material-symbols-outlined text-[16px]">play_arrow</span>
+                    Run
+                </button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant ml-2">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a high-tech software engineer with futuristic lighting and sharp details. The individual is centered, wearing a dark turtleneck against a background of dimly lit server racks with glowing green indicators, reflecting a high-end corporate IDE aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWEi6lIRlPtqSejK-qT9Apfl1Sv0ujqIBWjtFl173UI7noN6j7M0xr5I4weQ_9yhBIvs122Chaeej02UNuNJbFS2fIEvN5TTrL3GvXjV0xNe89OP3I1fdjXKcJZWFRHyUnocsXM6Didy5ljBd3tPioo6QPoEM7eWEqs-F0NFioRij1g7DFbX1cp-eEgZEBfyPSvVdKgS0yMKmVRMdBS8YQ9KDDnyud82aGcrOFY2UmuowP1HBCPKed12_hpIa2RB7vf0GCz-VnvUU"/>
+</div>
+</div>
+</div>
+</header>
+<div class="flex pt-12 pb-6 h-screen">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-screen fixed left-0 top-0 z-40 h-full w-sidebar-width flex-shrink-0 bg-surface-container-low border-r border-outline-variant pt-12">
+<div class="px-6 py-4 flex flex-col gap-1">
+<span class="font-h1 text-h1 text-primary-fixed">DevOS</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant opacity-60">V1.0.4</span>
+</div>
+<nav class="flex-1 px-3 py-4 space-y-1">
+<!-- Explorer -->
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 ease-in-out font-body-sm text-body-sm cursor-pointer rounded">
+<span class="material-symbols-outlined">folder_open</span>
+<span>Explorer</span>
+</div>
+<!-- Agents (Active) -->
+<div class="flex items-center gap-3 px-3 py-2 text-primary-fixed bg-surface-container-highest border-l-2 border-primary-fixed-dim transition-colors duration-150 ease-in-out font-body-sm text-body-sm cursor-pointer rounded">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span>Agents</span>
+</div>
+<!-- Settings -->
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 ease-in-out font-body-sm text-body-sm cursor-pointer rounded">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</div>
+</nav>
+<div class="p-3 border-t border-outline-variant">
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 ease-in-out font-body-sm text-body-sm cursor-pointer rounded">
+<span class="material-symbols-outlined">help</span>
+<span>Help</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-sidebar-width flex-1 overflow-y-auto custom-scrollbar bg-background">
+<div class="max-w-7xl mx-auto p-container-padding">
+<!-- Cluster Overview Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 mt-4">
+<div class="space-y-1">
+<h1 class="font-h1 text-h1 text-on-surface">Cluster Overview</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">System-wide AI orchestration and compute monitoring.</p>
+</div>
+<div class="flex gap-4">
+<div class="bg-surface-container border border-outline-variant px-4 py-3 flex flex-col min-w-[140px]">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-1">ACTIVE AGENTS</span>
+<span class="font-code-md text-h2 text-primary-fixed-dim">08<span class="text-on-surface-variant opacity-40 ml-1">/12</span></span>
+</div>
+<div class="bg-surface-container border border-outline-variant px-4 py-3 flex flex-col min-w-[160px]">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-1">TOTAL TOKENS</span>
+<span class="font-code-md text-h2 text-on-surface">1.24M</span>
+</div>
+<div class="bg-surface-container border border-outline-variant px-4 py-3 flex flex-col min-w-[140px]">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-1">AVG LATENCY</span>
+<span class="font-code-md text-h2 text-tertiary-fixed-dim">242ms</span>
+</div>
+</div>
+</div>
+<!-- Actions Bar -->
+<div class="flex justify-between items-center mb-6">
+<div class="flex gap-2">
+<button class="bg-surface-container-high border border-outline-variant px-3 py-1.5 font-label-caps text-label-caps hover:text-primary-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                            Filter
+                        </button>
+<button class="bg-surface-container-high border border-outline-variant px-3 py-1.5 font-label-caps text-label-caps hover:text-primary-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">sort</span>
+                            Sort
+                        </button>
+</div>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 font-label-caps text-label-caps flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+                        Add New Agent
+                    </button>
+</div>
+<!-- Bento Grid / Agent Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-outline-variant border border-outline-variant overflow-hidden">
+<!-- Card 1: Claude 3.5 -->
+<div class="bg-surface p-5 agent-card-hover transition-all duration-200 group flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-primary-fixed-dim">token</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-0.5 bg-on-primary-fixed-variant/20 rounded-full border border-on-primary-fixed-variant/30">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed-dim shadow-[0_0_8px_#00e38a]"></span>
+<span class="font-label-caps text-[9px] text-primary-fixed-dim">ACTIVE</span>
+</div>
+</div>
+<h3 class="font-h2 text-h2 mb-1">Claude 3.5 - Sonnet</h3>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-surface-container-highest text-on-surface-variant font-code-sm text-code-sm px-2 py-0.5 border border-outline-variant">Frontend Specialist</span>
+<span class="text-on-surface-variant text-[11px] opacity-60">Anthropic API</span>
+</div>
+<div class="space-y-2 mb-6">
+<div class="flex justify-between font-code-sm text-code-sm">
+<span class="text-on-surface-variant">Latency</span>
+<span class="text-on-surface">180ms</span>
+</div>
+<div class="flex justify-between font-code-sm text-code-sm">
+<span class="text-on-surface-variant">Success Rate</span>
+<span class="text-primary-fixed-dim">99.2%</span>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-1.5 font-label-caps text-label-caps bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest">Configure</button>
+<button class="flex-1 py-1.5 font-label-caps text-label-caps text-error border border-error/30 hover:bg-error/10">Deactivate</button>
+</div>
+</div>
+<!-- Card 2: GPT-4 -->
+<div class="bg-surface p-5 agent-card-hover transition-all duration-200 group flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">architecture</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-0.5 bg-surface-container-highest rounded-full border border-outline-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-on-surface-variant opacity-50"></span>
+<span class="font-label-caps text-[9px] text-on-surface-variant">IDLE</span>
+</div>
+</div>
+<h3 class="font-h2 text-h2 mb-1">GPT-4 - Turbo</h3>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-surface-container-highest text-on-surface-variant font-code-sm text-code-sm px-2 py-0.5 border border-outline-variant">Backend Architect</span>
+<span class="text-on-surface-variant text-[11px] opacity-60">OpenAI Provider</span>
+</div>
+<div class="space-y-2 mb-6">
+<div class="flex justify-between font-code-sm text-code-sm">
+<span class="text-on-surface-variant">Latency</span>
+<span class="text-on-surface">420ms</span>
+</div>
+<div class="flex justify-between font-code-sm text-code-sm">
+<span class="text-on-surface-variant">Success Rate</span>
+<span class="text-on-surface">97.8%</span>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-1.5 font-label-caps text-label-caps bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest">Configure</button>
+<button class="flex-1 py-1.5 font-label-caps text-label-caps text-error border border-error/30 hover:bg-error/10">Deactivate</button>
+</div>
+</div>
+<!-- Card 3: Llama 3 -->
+<div class="bg-surface p-5 agent-card-hover transition-all duration-200 group flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-secondary">assignment_turned_in</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-0.5 bg-error-container/20 rounded-full border border-error-container/30">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+<span class="font-label-caps text-[9px] text-error">ERROR</span>
+</div>
+</div>
+<h3 class="font-h2 text-h2 mb-1">Llama 3 - 70B</h3>
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-surface-container-highest text-on-surface-variant font-code-sm text-code-sm px-2 py-0.5 border border-outline-variant">Test Suite</span>
+<span class="text-on-surface-variant text-[11px] opacity-60">Local (vLLM)</span>
+</div>
+<div class="space-y-2 mb-6">
+<div class="flex justify-between font-code-sm text-code-sm">
+<span class="text-on-surface-variant">Latency</span>
+<span class="text-error">ERR: TIMEOUT</span>
+</div>
+<div class="flex justify-between font-code-sm text-code-sm">
+<span class="text-on-surface-variant">Success Rate</span>
+<span class="text-on-surface">84.2%</span>
+</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-1.5 font-label-caps text-label-caps bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest">Configure</button>
+<button class="flex-1 py-1.5 font-label-caps text-label-caps text-error border border-error/30 hover:bg-error/10">Restart</button>
+</div>
+</div>
+</div>
+<!-- Recent Activity Section -->
+<div class="mt-12">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">history</span>
+<h2 class="font-h2 text-h2 text-on-surface">Recent Activity</h2>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant divide-y divide-outline-variant">
+<!-- Activity Row 1 -->
+<div class="flex items-center px-4 py-3 gap-4 font-code-sm text-code-sm">
+<span class="text-on-surface-variant w-20">14:02:12</span>
+<span class="px-2 py-0.5 bg-on-primary-fixed-variant/10 text-primary-fixed-dim border border-on-primary-fixed-variant/20">ASSIGNED</span>
+<span class="flex-1 text-on-surface">Claude 3.5 assigned to 'Refactor Auth Component'</span>
+<span class="text-on-surface-variant opacity-60">2.4k tokens</span>
+</div>
+<!-- Activity Row 2 -->
+<div class="flex items-center px-4 py-3 gap-4 font-code-sm text-code-sm">
+<span class="text-on-surface-variant w-20">13:58:45</span>
+<span class="px-2 py-0.5 bg-tertiary-container/10 text-tertiary-fixed-dim border border-tertiary-container/20">COMPLETED</span>
+<span class="flex-1 text-on-surface">GPT-4 finished schema generation for 'User DB'</span>
+<span class="text-on-surface-variant opacity-60">842 tokens</span>
+</div>
+<!-- Activity Row 3 -->
+<div class="flex items-center px-4 py-3 gap-4 font-code-sm text-code-sm">
+<span class="text-on-surface-variant w-20">13:45:01</span>
+<span class="px-2 py-0.5 bg-error-container/10 text-error border border-error-container/20">FAILED</span>
+<span class="flex-1 text-on-surface">Llama 3 failed test generation: Connection lost</span>
+<span class="text-on-surface-variant opacity-60">0 tokens</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer -->
+<footer class="flex justify-between items-center px-4 w-full z-50 h-6 fixed bottom-0 bg-surface-container-lowest border-t border-outline-variant">
+<div class="flex items-center gap-4 font-code-sm text-code-sm text-secondary">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim animate-pulse"></span>
+<span>System Ready</span>
+</div>
+<span class="text-on-surface-variant opacity-30">|</span>
+<span>API: Connected</span>
+<span class="text-on-surface-variant opacity-30">|</span>
+<span>24ms</span>
+</div>
+<div class="flex gap-4 font-code-sm text-code-sm text-on-surface-variant">
+<span class="hover:text-primary-fixed cursor-default">Terms</span>
+<span class="hover:text-primary-fixed cursor-default">Support</span>
+</div>
+</footer>
+<script>
+        // Simple micro-interaction for active states
+        document.querySelectorAll('.agent-card-hover').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-1px)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+</body></html>

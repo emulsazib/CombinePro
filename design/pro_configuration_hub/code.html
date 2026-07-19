@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nexus IDE - Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;450&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for high-density UI */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1c20;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b4b3f;
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00e38a;
+        }
+        .active-tab {
+            background-color: #1e2024;
+            border-bottom: 2px solid #00e38a;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#282a2e",
+                        "on-secondary-container": "#e6ecff",
+                        "tertiary": "#fffaff",
+                        "surface-container-highest": "#333539",
+                        "outline-variant": "#3b4b3f",
+                        "inverse-surface": "#e2e2e8",
+                        "primary-fixed-dim": "#00e38a",
+                        "tertiary-fixed-dim": "#e4c44f",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "on-primary-container": "#007142",
+                        "surface-container": "#1e2024",
+                        "surface-dim": "#111317",
+                        "secondary": "#adc6ff",
+                        "on-tertiary-fixed": "#231b00",
+                        "on-tertiary": "#3b2f00",
+                        "secondary-container": "#0566d9",
+                        "on-error-container": "#ffdad6",
+                        "primary-container": "#00ff9c",
+                        "surface-bright": "#37393e",
+                        "primary-fixed": "#56ffa7",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#001a42",
+                        "tertiary-container": "#ffdd65",
+                        "on-primary-fixed": "#002110",
+                        "secondary-fixed": "#d8e2ff",
+                        "outline": "#849587",
+                        "tertiary-fixed": "#ffe17a",
+                        "background": "#111317",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#00e38a",
+                        "on-surface": "#e2e2e8",
+                        "surface-container-low": "#1a1c20",
+                        "on-secondary-fixed-variant": "#004395",
+                        "on-background": "#e2e2e8",
+                        "surface-container-lowest": "#0c0e12",
+                        "surface": "#111317",
+                        "on-tertiary-fixed-variant": "#554500",
+                        "on-primary": "#00391f",
+                        "inverse-primary": "#006d40",
+                        "inverse-on-surface": "#2f3035",
+                        "primary": "#f3fff3",
+                        "on-secondary": "#002e6a",
+                        "on-primary-fixed-variant": "#00522f",
+                        "surface-variant": "#333539",
+                        "on-tertiary-container": "#766000",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#b9cbbc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-padding": "12px",
+                        "unit": "4px",
+                        "panel-gap": "1px",
+                        "sidebar-width": "260px",
+                        "gutter": "8px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Inter"],
+                        "h1": ["Inter"],
+                        "code-md": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "h2": ["Inter"],
+                        "code-sm": ["JetBrains Mono"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["10px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "h1": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "code-md": ["13px", {"lineHeight": "20px", "fontWeight": "450"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "h2": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "code-sm": ["11px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md overflow-hidden flex flex-col h-screen">
+<!-- Document-style Top Tabs -->
+<nav class="flex bg-surface-container-lowest border-b border-outline-variant h-9 items-center overflow-x-auto shrink-0 no-scrollbar">
+<div class="flex h-full items-center px-3 gap-2 border-r border-outline-variant text-on-surface-variant text-[11px] hover:bg-surface-container-low cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[14px]">description</span>
+<span>Output_log.txt</span>
+</div>
+<div class="flex h-full items-center px-3 gap-2 border-r border-outline-variant text-primary-fixed-dim bg-surface-container text-[11px] border-b-2 border-primary-fixed-dim">
+<span class="material-symbols-outlined text-[14px]">settings</span>
+<span>Nexus Settings</span>
+<span class="material-symbols-outlined text-[14px] ml-1 hover:text-on-surface transition-colors">close</span>
+</div>
+<div class="flex h-full items-center px-3 gap-2 border-r border-outline-variant text-on-surface-variant text-[11px] hover:bg-surface-container-low cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[14px]">code</span>
+<span>evaluate_cti_agent.py</span>
+</div>
+</nav>
+<!-- Main Header -->
+<header class="flex justify-between items-center px-gutter w-full bg-surface h-12 border-b border-outline-variant shrink-0">
+<div class="flex items-center gap-4">
+<span class="font-h2 text-h2 text-on-surface tracking-tight">Nexus IDE</span>
+<div class="flex items-center ml-8 gap-4">
+<span class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary-container cursor-pointer transition-colors">Project</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary-container cursor-pointer transition-colors">Build</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary-container cursor-pointer transition-colors">Debug</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-4">
+<span class="material-symbols-outlined text-primary-fixed-dim cursor-pointer active:opacity-80">cloud_done</span>
+<span class="material-symbols-outlined text-primary-fixed-dim cursor-pointer active:opacity-80">account_tree</span>
+</div>
+<button class="bg-surface-container-highest px-3 py-1 rounded text-primary-fixed-dim font-label-caps text-label-caps border border-outline-variant hover:bg-surface-container-high transition-colors">Sync</button>
+<button class="bg-primary-container text-on-primary-container px-3 py-1 rounded font-label-caps text-label-caps hover:brightness-110 transition-all">Run</button>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- Settings Secondary Sidebar (Navigation Categories) -->
+<aside class="w-[280px] bg-surface-container-low border-r border-outline-variant flex flex-col shrink-0">
+<div class="p-6 pb-2">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-10 h-10 rounded bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<div class="text-body-sm font-semibold">dev@nexus.ai</div>
+<div class="text-[10px] text-primary-fixed-dim uppercase tracking-wider">Enterprise Plan</div>
+</div>
+</div>
+<div class="relative mb-6">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded px-9 py-2 text-body-sm focus:border-primary-fixed-dim focus:ring-0 outline-none placeholder-outline" placeholder="Search settings..." type="text"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-outline font-code-md">⌘F</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-4 pb-6 custom-scrollbar space-y-6">
+<!-- Group 1 -->
+<nav class="space-y-1">
+<div class="flex items-center gap-3 px-3 py-2 text-primary-fixed-dim bg-surface-container-high rounded-sm cursor-pointer border-l-2 border-primary-fixed-dim">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="text-body-sm font-medium">General</span>
+</div>
+<div class="flex items-center justify-between px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+<span class="text-body-sm">IDE Customization</span>
+</div>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">north_east</span>
+</div>
+</nav>
+<!-- Group 2: Identity & Plans -->
+<div class="space-y-1">
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span class="text-body-sm">Plan &amp; Usage</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[20px]">smart_toy</span>
+<span class="text-body-sm">Managed Agents</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[20px]">cloud</span>
+<span class="text-body-sm">Cloud Agents</span>
+</div>
+</div>
+<div class="border-t border-outline-variant/30 my-2"></div>
+<!-- Group 3: Core Config -->
+<div class="space-y-1">
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+<span class="text-body-sm">AI Models</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[20px]">account_tree</span>
+<span class="text-body-sm">Git &amp; PRs</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[20px]">extension</span>
+<span class="text-body-sm">Plugins &amp; Extensions</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[20px]">hub</span>
+<span class="text-body-sm">MCP Servers</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-[20px]">database</span>
+<span class="text-body-sm">Indexing &amp; Context</span>
+</div>
+</div>
+<!-- Footer links -->
+<div class="pt-4 border-t border-outline-variant/30">
+<div class="flex items-center justify-between px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-sm cursor-pointer transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+<span class="text-body-sm">Documentation</span>
+</div>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">north_east</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Settings Main Content -->
+<main class="flex-1 bg-surface-container-lowest overflow-y-auto custom-scrollbar">
+<div class="max-w-4xl mx-auto p-12 space-y-12">
+<!-- Banner Section -->
+<div class="bg-surface-container border border-outline-variant rounded-lg p-6 flex items-start gap-4 relative overflow-hidden group">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-fixed-dim">
+<span class="material-symbols-outlined">auto_awesome</span>
+</div>
+<div class="flex-1">
+<h4 class="text-on-surface font-semibold mb-1">Meet the new Agents Window</h4>
+<p class="text-on-surface-variant text-body-sm">Jump back to the Agents Window to keep working across multiple repositories and files simultaneously.</p>
+</div>
+<div class="flex items-center gap-3 self-center">
+<button class="bg-surface-container-highest text-on-surface hover:bg-surface-container-high px-4 py-2 rounded text-body-sm font-medium transition-all flex items-center gap-2 border border-outline-variant">
+                        Switch to Agents Window
+                        <span class="material-symbols-outlined text-[16px]">north_east</span>
+</button>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+</div>
+<!-- Content Title -->
+<h2 class="text-h1 font-h1 text-on-surface">General Settings</h2>
+<!-- Section: Account -->
+<div class="space-y-4">
+<h3 class="text-label-caps text-on-surface-variant uppercase tracking-widest border-b border-outline-variant/30 pb-2">Account Management</h3>
+<div class="bg-surface border border-outline-variant rounded-lg p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors group cursor-pointer">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">Nexus Identity</div>
+<div class="text-on-surface-variant text-body-sm">Manage your linked accounts, keys, and security credentials</div>
+</div>
+<button class="bg-surface-container-highest text-on-surface px-4 py-1.5 rounded text-body-sm flex items-center gap-2 border border-outline-variant group-hover:border-primary-fixed-dim transition-colors">
+                        Open
+                        <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</button>
+</div>
+</div>
+<!-- Section: Preferences -->
+<div class="space-y-4">
+<h3 class="text-label-caps text-on-surface-variant uppercase tracking-widest border-b border-outline-variant/30 pb-2">Preferences</h3>
+<div class="bg-surface border border-outline-variant rounded-lg overflow-hidden">
+<!-- Editor Settings -->
+<div class="p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors group cursor-pointer border-b border-outline-variant">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">Editor Settings</div>
+<div class="text-on-surface-variant text-body-sm">Configure font, formatting, minimap, and terminal behavior</div>
+</div>
+<button class="bg-surface-container-highest text-on-surface px-4 py-1.5 rounded text-body-sm flex items-center gap-2 border border-outline-variant">
+                            Open
+                        </button>
+</div>
+<!-- Keyboard Shortcuts -->
+<div class="p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors group cursor-pointer border-b border-outline-variant">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">Keyboard Shortcuts</div>
+<div class="text-on-surface-variant text-body-sm">Customize keybindings and hotkeys</div>
+</div>
+<button class="bg-surface-container-highest text-on-surface px-4 py-1.5 rounded text-body-sm flex items-center gap-2 border border-outline-variant">
+                            Edit
+                        </button>
+</div>
+<!-- Import -->
+<div class="p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors group cursor-pointer border-b border-outline-variant">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">Import from VS Code</div>
+<div class="text-on-surface-variant text-body-sm">Sync extensions, settings, and workspace data</div>
+</div>
+<button class="bg-surface-container-highest text-on-surface px-4 py-1.5 rounded text-body-sm flex items-center gap-2 border border-outline-variant">
+                            Import
+                        </button>
+</div>
+<!-- Dialogs -->
+<div class="p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors group cursor-pointer">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">Reset "Don't Ask Again" Dialogs</div>
+<div class="text-on-surface-variant text-body-sm">Restore all suppressed warnings and tooltips</div>
+</div>
+<button class="bg-surface-container-highest text-on-surface px-4 py-1.5 rounded text-body-sm flex items-center gap-2 border border-outline-variant">
+                            Show
+                        </button>
+</div>
+</div>
+</div>
+<!-- Section: Layout Controls -->
+<div class="space-y-4 pb-12">
+<h3 class="text-label-caps text-on-surface-variant uppercase tracking-widest border-b border-outline-variant/30 pb-2">Layout &amp; Visuals</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Window Layout -->
+<div class="bg-surface border border-outline-variant rounded-lg p-6 space-y-4">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">Window Layout</div>
+<div class="text-on-surface-variant text-body-sm">Default arrangement for Agent and Editor views</div>
+</div>
+<div class="flex gap-2 p-1 bg-surface-container rounded-md w-fit border border-outline-variant">
+<button class="px-4 py-2 rounded text-body-sm text-on-surface-variant hover:bg-surface-container-high flex flex-col items-center gap-2">
+<div class="w-12 h-8 bg-surface-container-highest border border-outline rounded flex items-center justify-center">
+<div class="w-8 h-4 bg-outline-variant/30 rounded-sm"></div>
+</div>
+                                Agent
+                            </button>
+<button class="px-4 py-2 rounded text-body-sm text-primary-fixed-dim bg-surface-container-highest border border-primary-fixed-dim/30 flex flex-col items-center gap-2 shadow-sm">
+<div class="w-12 h-8 bg-surface-container-lowest border border-primary-fixed-dim/50 rounded flex items-center justify-center p-1 gap-1">
+<div class="w-4 h-6 bg-primary-fixed-dim/20 rounded-sm"></div>
+<div class="w-8 h-6 bg-primary-fixed-dim/40 rounded-sm"></div>
+</div>
+                                Editor
+                            </button>
+</div>
+</div>
+<!-- Density -->
+<div class="bg-surface border border-outline-variant rounded-lg p-6 flex flex-col justify-between space-y-4">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">Conversation Density</div>
+<div class="text-on-surface-variant text-body-sm">Control detail levels in agent logs</div>
+</div>
+<div class="relative">
+<select class="w-full bg-surface-container-high border border-outline-variant rounded px-3 py-2 text-body-sm text-on-surface focus:ring-0 focus:border-primary-fixed-dim appearance-none cursor-pointer">
+<option>Detailed (Default)</option>
+<option>Compact</option>
+<option>Minimal</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]">unfold_more</span>
+</div>
+</div>
+</div>
+<!-- Toggle switches -->
+<div class="bg-surface border border-outline-variant rounded-lg p-6 space-y-6">
+<div class="flex items-center justify-between">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">Auto-Save State</div>
+<div class="text-on-surface-variant text-body-sm">Automatically persist IDE state every 60 seconds</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<div class="space-y-1">
+<div class="text-on-surface font-medium">GPU Acceleration</div>
+<div class="text-on-surface-variant text-body-sm">Use hardware acceleration for rendering UI components</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Bottom Status Bar -->
+<footer class="flex justify-between items-center px-4 w-full h-6 bg-surface-container-lowest border-t border-outline-variant font-code-sm text-code-sm text-secondary shrink-0">
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 bg-primary-fixed-dim rounded-full"></span> System Ready</span>
+<span class="text-outline-variant">|</span>
+<span>API: Connected</span>
+<span class="text-outline-variant">|</span>
+<span>24ms</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-on-surface-variant hover:text-primary-fixed cursor-default transition-colors">Terms</span>
+<span class="text-on-surface-variant hover:text-primary-fixed cursor-default transition-colors">Support</span>
+</div>
+</footer>
+<script>
+    // Tab switching logic can be added here if needed for interactivity
+</script>
+</body></html>

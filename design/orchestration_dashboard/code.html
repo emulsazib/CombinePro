@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DevOS - Nexus IDE Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+            font-size: 18px;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1c20;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b4b3f;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00e38a;
+        }
+        .code-syntax-keyword { color: #ffb4ab; }
+        .code-syntax-func { color: #00e38a; }
+        .code-syntax-string { color: #ffe17a; }
+        .code-syntax-comment { color: #849587; }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .terminal-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background-color: #00e38a;
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#ffdd65",
+                        "inverse-primary": "#006d40",
+                        "surface-container": "#1e2024",
+                        "surface-container-highest": "#333539",
+                        "on-primary": "#00391f",
+                        "secondary-container": "#0566d9",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-fixed": "#002110",
+                        "on-surface-variant": "#b9cbbc",
+                        "inverse-surface": "#e2e2e8",
+                        "surface": "#111317",
+                        "background": "#111317",
+                        "on-secondary": "#002e6a",
+                        "secondary-fixed": "#d8e2ff",
+                        "surface-dim": "#111317",
+                        "tertiary": "#fffaff",
+                        "surface-container-lowest": "#0c0e12",
+                        "surface-container-low": "#1a1c20",
+                        "on-error": "#690005",
+                        "inverse-on-surface": "#2f3035",
+                        "outline": "#849587",
+                        "primary-container": "#00ff9c",
+                        "on-tertiary": "#3b2f00",
+                        "secondary": "#adc6ff",
+                        "on-secondary-fixed": "#001a42",
+                        "on-secondary-fixed-variant": "#004395",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "surface-bright": "#37393e",
+                        "on-error-container": "#ffdad6",
+                        "surface-variant": "#333539",
+                        "outline-variant": "#3b4b3f",
+                        "error-container": "#93000a",
+                        "on-surface": "#e2e2e8",
+                        "tertiary-fixed-dim": "#e4c44f",
+                        "on-primary-fixed-variant": "#00522f",
+                        "primary": "#f3fff3",
+                        "tertiary-fixed": "#ffe17a",
+                        "on-tertiary-fixed": "#231b00",
+                        "error": "#ffb4ab",
+                        "primary-fixed": "#56ffa7",
+                        "on-secondary-container": "#e6ecff",
+                        "primary-fixed-dim": "#00e38a",
+                        "on-tertiary-container": "#766000",
+                        "on-primary-container": "#007142",
+                        "surface-tint": "#00e38a",
+                        "on-background": "#e2e2e8",
+                        "on-tertiary-fixed-variant": "#554500"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "8px",
+                        "container-padding": "12px",
+                        "unit": "4px",
+                        "panel-gap": "1px",
+                        "sidebar-width": "260px"
+                    },
+                    "fontFamily": {
+                        "code-md": ["JetBrains Mono"],
+                        "h2": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-md": ["Inter"],
+                        "h1": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "code-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "code-md": ["13px", {"lineHeight": "20px", "fontWeight": "450"}],
+                        "h2": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-caps": ["10px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "h1": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "code-sm": ["11px", {"lineHeight": "16px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container overflow-hidden h-screen flex flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex justify-between items-center px-gutter w-full z-50 h-12 bg-surface border-b border-outline-variant flex-shrink-0">
+<div class="flex items-center gap-4">
+<h1 class="font-h2 text-h2 text-on-surface tracking-tight">Nexus IDE</h1>
+<nav class="hidden md:flex gap-6 items-center h-full ml-4">
+<a class="font-label-caps text-label-caps text-primary border-b border-primary h-full flex items-center px-2 cursor-pointer active:opacity-80">Project</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant h-full flex items-center px-2 hover:text-primary-container cursor-pointer active:opacity-80">Build</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant h-full flex items-center px-2 hover:text-primary-container cursor-pointer active:opacity-80">Debug</a>
+</nav>
+</div>
+<div class="flex items-center gap-4 h-full">
+<div class="flex items-center gap-2">
+<button class="flex items-center gap-1.5 px-3 py-1 bg-primary-container text-on-primary-container font-label-caps text-label-caps rounded-sm hover:opacity-90 transition-all">
+<span class="material-symbols-outlined !text-[14px]">play_arrow</span>
+                Run
+            </button>
+<button class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-highest text-on-surface font-label-caps text-label-caps rounded-sm border border-outline-variant hover:bg-surface-container-high">
+<span class="material-symbols-outlined !text-[14px]">sync</span>
+                Sync
+            </button>
+</div>
+<div class="flex items-center gap-3 border-l border-outline-variant pl-4 h-6">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">cloud_done</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">account_tree</span>
+<img class="w-7 h-7 rounded-full border border-primary-fixed-dim" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvi2sXbKCeBJforGouHJ889ydxUqj39zStuqi8df3ZWAlHKuDc6Od_8_06KAf-QgSV3NfV4yo0ApoEelCZ09Pvn-DKQcLofYncvTjNmo3pu5Et7_hU9MwfIHo5O99-nT9jNLQh6qhGcfnB58550f-K3xQ297ALULeC4wEhVFxCbhqPkT-yZjx9e3IWDKiC6jmar_F1L5JVVKYepXQB79Clo2IN9MmMOhHNUGS7AcLM7U4u2Z60szgf9Ei4xhhBUC4oSPgb1wskTPA"/>
+</div>
+</div>
+</header>
+<!-- Main Shell -->
+<div class="flex flex-1 overflow-hidden">
+<!-- Left Sidebar: File Explorer -->
+<aside class="flex flex-col h-full w-sidebar-width flex-shrink-0 bg-surface-container-low border-r border-outline-variant z-40">
+<div class="flex items-center gap-3 p-4 border-b border-outline-variant">
+<span class="font-h1 text-h1 text-primary-fixed">DevOS</span>
+<span class="font-body-sm text-body-sm text-outline opacity-70">V1.0.4</span>
+</div>
+<nav class="flex-1 overflow-y-auto pt-2">
+<div class="px-3 mb-4">
+<button class="w-full flex items-center gap-3 px-3 py-2 text-primary-fixed bg-surface-container-highest border-l-2 border-primary-fixed-dim transition-colors duration-150 font-body-sm text-body-sm">
+<span class="material-symbols-outlined">folder_open</span>
+                    Explorer
+                </button>
+<button class="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 font-body-sm text-body-sm">
+<span class="material-symbols-outlined">smart_toy</span>
+                    Agents
+                </button>
+</div>
+<!-- Tree View -->
+<div class="px-2 space-y-0.5">
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface hover:bg-surface-container-high cursor-pointer transition-all">
+<span class="material-symbols-outlined !text-[16px] text-outline">expand_more</span>
+<span class="material-symbols-outlined !text-[16px] text-tertiary-fixed-dim">folder</span>
+<span class="text-body-sm">src</span>
+</div>
+<div class="pl-6 space-y-0.5">
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface hover:bg-surface-container-high cursor-pointer transition-all border-l-2 border-primary-fixed-dim bg-surface-container-highest">
+<span class="material-symbols-outlined !text-[16px] text-primary-fixed-dim">description</span>
+<span class="text-body-sm">main.py</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-all">
+<span class="material-symbols-outlined !text-[16px] text-on-surface-variant">description</span>
+<span class="text-body-sm">utils.py</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-all">
+<span class="material-symbols-outlined !text-[16px] text-outline">chevron_right</span>
+<span class="material-symbols-outlined !text-[16px] text-tertiary-fixed-dim">folder</span>
+<span class="text-body-sm">tests</span>
+</div>
+</div>
+</nav>
+<footer class="mt-auto border-t border-outline-variant p-2">
+<button class="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 font-body-sm text-body-sm">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </button>
+</footer>
+</aside>
+<!-- Center Panel: Editor & AI Command -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface border-r border-outline-variant">
+<!-- Tabs -->
+<div class="flex bg-surface-container-lowest border-b border-outline-variant h-9 flex-shrink-0">
+<div class="flex items-center px-4 gap-2 bg-surface border-r border-outline-variant border-t-2 border-primary-fixed-dim text-primary text-body-sm">
+<span class="material-symbols-outlined !text-[14px]">description</span>
+                main.py
+                <span class="material-symbols-outlined !text-[14px] ml-2 hover:text-error cursor-pointer">close</span>
+</div>
+<div class="flex items-center px-4 gap-2 text-on-surface-variant border-r border-outline-variant text-body-sm hover:bg-surface-container cursor-pointer transition-all">
+<span class="material-symbols-outlined !text-[14px]">description</span>
+                utils.py
+            </div>
+</div>
+<!-- Editor Content Area (Scrollable) -->
+<div class="flex-1 overflow-auto bg-surface-container-lowest flex font-code-md text-code-md p-4 relative">
+<div class="text-outline text-right pr-4 border-r border-outline-variant select-none opacity-40 leading-[20px] h-fit">
+                1<br/>2<br/>3<br/>4<br/>5<br/>6<br/>7<br/>8<br/>9<br/>10<br/>11<br/>12<br/>13<br/>14<br/>15
+            </div>
+<div class="pl-4 leading-[20px] w-full">
+<span class="code-syntax-keyword">import</span> sys<br/>
+<span class="code-syntax-keyword">from</span> agents <span class="code-syntax-keyword">import</span> backend_controller<br/>
+<br/>
+<span class="code-syntax-comment"># Initializing the neural bridge</span><br/>
+<span class="code-syntax-keyword">def</span> <span class="code-syntax-func">initialize_system</span>():<br/>
+                    agents = backend_controller.<span class="code-syntax-func">spawn_agents</span>(<span class="code-syntax-string">"backend_orchestrator"</span>)<br/>
+                    <span class="code-syntax-keyword">for</span> agent <span class="code-syntax-keyword">in</span> agents:<br/>
+                        agent.<span class="code-syntax-func">listen_to</span>(<span class="code-syntax-string">"event_bus"</span>)<br/>
+                    <span class="code-syntax-keyword">return</span> <span class="code-syntax-string">"System Ready"</span><br/>
+<br/>
+<span class="code-syntax-keyword">if</span> __name__ == <span class="code-syntax-string">"__main__"</span>:<br/>
+                    status = <span class="code-syntax-func">initialize_system</span>()<br/>
+                    <span class="code-syntax-func">print</span>(f<span class="code-syntax-string">"Boot sequence: {status}"</span>)<br/>
+<span class="terminal-cursor"></span>
+</div>
+</div>
+<!-- AI COMMAND CENTER (Prompt Bar) -->
+<div class="p-4 border-t border-outline-variant bg-surface-container flex-shrink-0">
+<div class="relative flex items-center">
+<span class="absolute left-3 material-symbols-outlined text-primary-fixed-dim">bolt</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg pl-10 pr-24 py-3 text-body-md focus:outline-none focus:border-primary-fixed-dim transition-all placeholder:text-outline/50" placeholder="Prompt all agents... (e.g. 'Optimise my main loop')" type="text"/>
+<div class="absolute right-2 flex items-center gap-2">
+<span class="text-label-caps font-label-caps text-outline bg-surface-container-high px-2 py-1 rounded">⌘ K</span>
+<button class="bg-primary-container text-on-primary-container p-1.5 rounded hover:opacity-90 transition-all">
+<span class="material-symbols-outlined !text-[20px]">send</span>
+</button>
+</div>
+</div>
+</div>
+<!-- SYSTEM TERMINAL (Replacing event bus log with interactive feel) -->
+<div class="h-48 bg-surface-container-lowest border-t border-outline-variant flex flex-col flex-shrink-0">
+<div class="flex items-center justify-between px-3 py-1 bg-surface-container-high border-b border-outline-variant">
+<div class="flex items-center gap-4">
+<span class="text-label-caps font-label-caps text-primary-fixed-dim flex items-center gap-1.5">
+<span class="material-symbols-outlined !text-[14px]">terminal</span> SYSTEM TERMINAL
+                    </span>
+<div class="flex gap-2">
+<span class="text-label-caps font-label-caps text-on-surface-variant hover:text-on-surface cursor-pointer">zsh</span>
+<span class="text-label-caps font-label-caps text-outline cursor-pointer">node</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined !text-[16px] text-outline hover:text-on-surface cursor-pointer">keyboard_arrow_down</span>
+<span class="material-symbols-outlined !text-[16px] text-outline hover:text-on-surface cursor-pointer">close</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-3 font-code-sm text-code-sm space-y-1">
+<div class="flex gap-2">
+<span class="text-primary-fixed-dim">➜</span>
+<span class="text-secondary">~/devos</span>
+<span class="text-on-surface">nexus-ide --version</span>
+</div>
+<div class="text-outline">DevOS Nexus v1.0.4-stable [build 8821]</div>
+<div class="flex gap-2">
+<span class="text-primary-fixed-dim">➜</span>
+<span class="text-secondary">~/devos</span>
+<span class="text-on-surface-variant animate-pulse">listening for agent telemetry...<span class="terminal-cursor !h-3 !w-1.5"></span></span>
+</div>
+<div class="text-primary-fixed-dim/70">[14:05:22] Agent 'Claude' successfully pushed migration to DB branch.</div>
+<div class="text-error/70">[14:05:23] Warning: High latency on cluster node #2.</div>
+</div>
+</div>
+</main>
+<!-- Right Sidebar: Agent Management & AI Output -->
+<aside class="w-80 bg-surface-container-low flex flex-col h-full overflow-hidden flex-shrink-0">
+<!-- Agent Cluster Header -->
+<div class="p-3 border-b border-outline-variant flex justify-between items-center bg-surface-container">
+<span class="font-label-caps text-label-caps text-on-surface">Agent Cluster</span>
+<span class="material-symbols-outlined text-primary-fixed-dim cursor-pointer hover:rotate-90 transition-transform">add_circle</span>
+</div>
+<!-- Active Agents Area -->
+<div class="flex-1 overflow-y-auto p-2 space-y-2">
+<!-- Claude 3.5 -->
+<div class="p-3 bg-surface-container-high border border-outline-variant rounded hover:border-primary-fixed-dim transition-all group">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary-fixed animate-pulse"></div>
+<span class="font-body-md text-on-surface font-semibold">Claude 3.5</span>
+</div>
+<span class="font-label-caps text-[8px] px-1.5 py-0.5 bg-primary-container text-on-primary-container rounded-full">ACTIVE</span>
+</div>
+<p class="text-body-sm text-outline mb-3">Refining backend API controllers...</p>
+<div class="flex justify-between items-center">
+<div class="flex -space-x-2">
+<span class="material-symbols-outlined !text-[14px] text-primary-fixed-dim">terminal</span>
+<span class="material-symbols-outlined !text-[14px] text-secondary">database</span>
+</div>
+<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined !text-[16px] text-on-surface-variant hover:text-error cursor-pointer">stop_circle</span>
+<span class="material-symbols-outlined !text-[16px] text-on-surface-variant hover:text-primary-fixed-dim cursor-pointer">edit</span>
+</div>
+</div>
+</div>
+<!-- Gemini Flash -->
+<div class="p-3 bg-surface-container-high border border-outline-variant rounded border-l-2 border-secondary">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="font-body-md text-on-surface font-semibold">Gemini Flash</span>
+</div>
+<span class="font-label-caps text-[8px] px-1.5 py-0.5 bg-secondary-container text-on-secondary-container rounded-full">RUNNING</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-1 mb-2 rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 65%;"></div>
+</div>
+<p class="text-body-sm text-outline">Generating unit tests...</p>
+</div>
+</div>
+<!-- AI OUTPUT SECTION (New Structured Responses Area) -->
+<div class="h-1/2 border-t border-outline-variant flex flex-col bg-surface-container">
+<div class="p-3 border-b border-outline-variant bg-surface-container-highest flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface">AI Thought Stream</span>
+<span class="material-symbols-outlined text-outline cursor-pointer hover:text-on-surface">fullscreen</span>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-4">
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<img class="w-5 h-5 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvi2sXbKCeBJforGouHJ889ydxUqj39zStuqi8df3ZWAlHKuDc6Od_8_06KAf-QgSV3NfV4yo0ApoEelCZ09Pvn-DKQcLofYncvTjNmo3pu5Et7_hU9MwfIHo5O99-nT9jNLQh6qhGcfnB58550f-K3xQ297ALULeC4wEhVFxCbhqPkT-yZjx9e3IWDKiC6jmar_F1L5JVVKYepXQB79Clo2IN9MmMOhHNUGS7AcLM7U4u2Z60szgf9Ei4xhhBUC4oSPgb1wskTPA"/>
+<span class="text-label-caps font-bold text-primary-fixed-dim uppercase tracking-wider text-[10px]">System User</span>
+</div>
+<div class="bg-surface-container-low p-3 rounded text-body-sm text-on-surface-variant border border-outline-variant/30">
+                        Optimise the `initialize_system` function for parallel execution.
+                    </div>
+</div>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined !text-[12px] text-on-primary-container">smart_toy</span>
+</div>
+<span class="text-label-caps font-bold text-secondary uppercase tracking-wider text-[10px]">Claude 3.5</span>
+</div>
+<div class="bg-surface-container-lowest p-3 rounded text-body-sm text-on-surface border-l-2 border-primary-fixed-dim">
+<p class="mb-2 opacity-80">I've analyzed the request. Implementing `asyncio` gather to spawn agents concurrently.</p>
+<div class="bg-black/20 p-2 rounded font-code-sm text-primary-fixed text-[11px] border border-outline-variant">
+                            await asyncio.gather(*[agent.listen() for agent in agents])
+                        </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Load Visualizer -->
+<div class="p-3 border-t border-outline-variant h-32 flex-shrink-0 bg-surface-container-low">
+<h3 class="font-label-caps text-label-caps text-outline mb-2">CLUSTER LOAD</h3>
+<div class="flex items-end gap-1 h-14">
+<div class="flex-1 bg-primary-fixed-dim/20 h-[40%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/40 h-[60%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/30 h-[45%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/80 h-[90%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/50 h-[55%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/20 h-[30%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/10 h-[10%]"></div>
+</div>
+</div>
+</aside>
+</div>
+<!-- Status Footer -->
+<footer class="h-6 w-full flex justify-between items-center px-4 bg-surface-container-lowest border-t border-outline-variant flex-shrink-0 z-50">
+<div class="flex items-center gap-4 font-code-sm text-code-sm">
+<span class="text-primary-fixed-dim flex items-center gap-1.5"><span class="material-symbols-outlined !text-[12px]">check_circle</span> SYSTEM ONLINE</span>
+<span class="text-outline">API: Connected</span>
+</div>
+<div class="flex items-center gap-4 font-code-sm text-code-sm text-secondary">
+<span class="text-on-surface-variant">24ms Latency</span>
+<div class="flex gap-3">
+<span class="hover:text-primary-fixed cursor-pointer transition-colors">Support</span>
+<span class="hover:text-primary-fixed cursor-pointer transition-colors">v1.0.4</span>
+</div>
+</div>
+</footer>
+<script>
+    // Code editor cursor movement
+    const editorCursor = document.querySelector('.terminal-cursor');
+    let cursorVisible = true;
+    setInterval(() => {
+        cursorVisible = !cursorVisible;
+        if(editorCursor) editorCursor.style.opacity = cursorVisible ? '1' : '0';
+    }, 600);
+</script>
+</body></html>

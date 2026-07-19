@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nexus IDE - Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;450&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for high-density UI */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1c20;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b4b3f;
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00e38a;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#ffdd65",
+                        "inverse-primary": "#006d40",
+                        "surface-container": "#1e2024",
+                        "surface-container-highest": "#333539",
+                        "on-primary": "#00391f",
+                        "secondary-container": "#0566d9",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-fixed": "#002110",
+                        "on-surface-variant": "#b9cbbc",
+                        "inverse-surface": "#e2e2e8",
+                        "surface": "#111317",
+                        "background": "#111317",
+                        "on-secondary": "#002e6a",
+                        "secondary-fixed": "#d8e2ff",
+                        "surface-dim": "#111317",
+                        "tertiary": "#fffaff",
+                        "surface-container-lowest": "#0c0e12",
+                        "surface-container-low": "#1a1c20",
+                        "on-error": "#690005",
+                        "inverse-on-surface": "#2f3035",
+                        "outline": "#849587",
+                        "primary-container": "#00ff9c",
+                        "on-tertiary": "#3b2f00",
+                        "secondary": "#adc6ff",
+                        "on-secondary-fixed": "#001a42",
+                        "on-secondary-fixed-variant": "#004395",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "surface-bright": "#37393e",
+                        "on-error-container": "#ffdad6",
+                        "surface-variant": "#333539",
+                        "outline-variant": "#3b4b3f",
+                        "error-container": "#93000a",
+                        "on-surface": "#e2e2e8",
+                        "tertiary-fixed-dim": "#e4c44f",
+                        "on-primary-fixed-variant": "#00522f",
+                        "primary": "#f3fff3",
+                        "tertiary-fixed": "#ffe17a",
+                        "on-tertiary-fixed": "#231b00",
+                        "error": "#ffb4ab",
+                        "primary-fixed": "#56ffa7",
+                        "on-secondary-container": "#e6ecff",
+                        "primary-fixed-dim": "#00e38a",
+                        "on-tertiary-container": "#766000",
+                        "on-primary-container": "#007142",
+                        "surface-tint": "#00e38a",
+                        "on-background": "#e2e2e8",
+                        "on-tertiary-fixed-variant": "#554500"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "8px",
+                        "container-padding": "12px",
+                        "unit": "4px",
+                        "panel-gap": "1px",
+                        "sidebar-width": "260px"
+                    },
+                    "fontFamily": {
+                        "code-md": ["JetBrains Mono"],
+                        "h2": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-md": ["Inter"],
+                        "h1": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "code-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "code-md": ["13px", {"lineHeight": "20px", "fontWeight": "450"}],
+                        "h2": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-caps": ["10px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "h1": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "code-sm": ["11px", {"lineHeight": "16px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md overflow-hidden">
+<!-- Top Navigation Bar (Fixed as per JSON Command) -->
+<header class="flex justify-between items-center px-gutter w-full fixed top-0 z-50 bg-surface h-12 border-b border-outline-variant">
+<div class="flex items-center gap-4">
+<span class="font-h2 text-h2 text-on-surface tracking-tight">Nexus IDE</span>
+<div class="flex items-center ml-8 gap-4">
+<span class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary-container cursor-pointer transition-colors">Project</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary-container cursor-pointer transition-colors">Build</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary-container cursor-pointer transition-colors">Debug</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-4">
+<span class="material-symbols-outlined text-primary-fixed-dim cursor-pointer active:opacity-80">cloud_done</span>
+<span class="material-symbols-outlined text-primary-fixed-dim cursor-pointer active:opacity-80">account_tree</span>
+</div>
+<button class="bg-surface-container-highest px-3 py-1 rounded text-primary-fixed-dim font-label-caps text-label-caps border border-outline-variant hover:bg-surface-container-high transition-colors">Sync</button>
+<button class="bg-primary-container text-on-primary-container px-3 py-1 rounded font-label-caps text-label-caps hover:brightness-110 transition-all">Run</button>
+</div>
+</header>
+<!-- Side Navigation Bar (Fixed as per JSON Command) -->
+<aside class="flex flex-col h-screen fixed left-0 top-0 z-40 bg-surface-container-low w-sidebar-width flex-shrink-0 border-r border-outline-variant">
+<div class="p-4 flex flex-col gap-1 mt-12">
+<h1 class="font-h1 text-h1 text-primary-fixed mb-1">DevOS</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">V1.0.4</p>
+<nav class="flex flex-col gap-1">
+<div class="flex items-center gap-3 px-3 py-2 transition-colors duration-150 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface cursor-pointer rounded">
+<span class="material-symbols-outlined" data-icon="folder_open">folder_open</span>
+<span class="font-body-sm text-body-sm">Explorer</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 transition-colors duration-150 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface cursor-pointer rounded">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+<span class="font-body-sm text-body-sm">Agents</span>
+</div>
+<!-- ACTIVE TAB: Settings -->
+<div class="flex items-center gap-3 px-3 py-2 transition-colors duration-150 ease-in-out text-primary-fixed bg-surface-container-highest border-l-2 border-primary-fixed-dim cursor-pointer">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-body-sm text-body-sm">Settings</span>
+</div>
+</nav>
+</div>
+<div class="mt-auto p-4 border-t border-outline-variant">
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface cursor-pointer rounded">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-body-sm text-body-sm">Help</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas (Dialog Area) -->
+<main class="ml-sidebar-width mt-12 mb-6 h-[calc(100vh-4.5rem)] flex items-center justify-center p-8 bg-surface-container-lowest">
+<!-- Animated Background Decoration -->
+<div class="absolute inset-0 pointer-events-none opacity-20">
+</div>
+<!-- Settings Configuration Dialog -->
+<div class="relative w-full max-w-2xl bg-surface border border-outline-variant shadow-2xl flex flex-col h-[520px] overflow-hidden z-10">
+<!-- Dialog Header -->
+<div class="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-fixed-dim">settings</span>
+<span class="font-h2 text-h2 uppercase tracking-widest text-on-surface">Configuration</span>
+</div>
+<span class="font-code-sm text-code-sm text-outline">v1.4.0-stable</span>
+</div>
+<!-- Tabs Navigation -->
+<div class="flex bg-surface-container-low px-2 border-b border-outline-variant">
+<button class="px-6 py-3 font-label-caps text-label-caps text-primary-fixed border-b-2 border-primary-fixed transition-all" id="btn-api-tab" onclick="switchTab('api-tab')">API CONFIGURATIONS</button>
+<button class="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface border-b-2 border-transparent transition-all" id="btn-general-tab" onclick="switchTab('general-tab')">GENERAL SETTINGS</button>
+<button class="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface border-b-2 border-transparent transition-all" id="btn-agents-tab" onclick="switchTab('agents-tab')">AI AGENTS</button><button class="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface border-b-2 border-transparent transition-all" id="btn-mcp-tab" onclick="switchTab('mcp-tab')">MCP SERVERS</button><button class="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface border-b-2 border-transparent transition-all" id="btn-pkg-tab" onclick="switchTab('pkg-tab')">PACKAGE MANAGER</button><button class="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface border-b-2 border-transparent transition-all" id="btn-ext-tab" onclick="switchTab('ext-tab')">EXTENSIONS</button></div>
+<!-- Dialog Content Wrapper -->
+<div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+<!-- Tab 1: API Configurations -->
+<div class="space-y-6 block" id="api-tab">
+<div class="space-y-4">
+<label class="block">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-2 block">OPENAI API KEY</span>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-sm px-4 py-3 font-code-md text-code-md text-primary focus:border-primary-fixed-dim focus:ring-0 outline-none transition-all pr-12" id="openai-key" type="password" value="sk-proj-••••••••••••••••"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface" onclick="toggleVisibility('openai-key')">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</label>
+<label class="block">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-2 block">ANTHROPIC API KEY</span>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-sm px-4 py-3 font-code-md text-code-md text-primary focus:border-primary-fixed-dim focus:ring-0 outline-none transition-all pr-12" id="anthropic-key" type="password" value="sk-ant-••••••••••••••••"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface" onclick="toggleVisibility('anthropic-key')">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</label>
+<label class="block">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-2 block">GOOGLE API KEY</span>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-sm px-4 py-3 font-code-md text-code-md text-primary focus:border-primary-fixed-dim focus:ring-0 outline-none transition-all pr-12" id="google-key" type="password" value="AIzaSy••••••••••••••••"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface" onclick="toggleVisibility('google-key')">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</label>
+</div>
+</div>
+<!-- Tab 2: General Settings -->
+<div class="space-y-6 hidden" id="general-tab">
+<div class="space-y-4">
+<label class="block">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-2 block">LOCAL REPOSITORY PATH</span>
+<div class="flex gap-2">
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded-sm px-4 py-3 font-code-md text-code-md text-on-surface focus:border-primary-fixed-dim focus:ring-0 outline-none transition-all" type="text" value="/Users/dev/projects/nexus-ide"/>
+<button class="px-4 bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined">folder_open</span>
+</button>
+</div>
+</label>
+<label class="block">
+<span class="font-label-caps text-label-caps text-on-surface-variant mb-2 block">ORCHESTRATOR MODEL PATH</span>
+<div class="flex gap-2">
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded-sm px-4 py-3 font-code-md text-code-md text-on-surface focus:border-primary-fixed-dim focus:ring-0 outline-none transition-all" type="text" value="./models/orchestrator-v4-quantized.bin"/>
+<button class="px-4 bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined">psychology</span>
+</button>
+</div>
+</label>
+<div class="pt-4 border-t border-outline-variant mt-6">
+<div class="flex items-center justify-between bg-surface-container-low p-4 rounded border border-outline-variant">
+<div>
+<h4 class="font-body-md text-on-surface">Auto-Save State</h4>
+<p class="font-body-sm text-on-surface-variant">Sync IDE state every 60 seconds</p>
+</div>
+<div class="w-10 h-5 bg-primary-container rounded-full relative cursor-pointer">
+<div class="absolute right-1 top-1 w-3 h-3 bg-on-primary-container rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="space-y-6 hidden" id="agents-tab"><div class="flex justify-between items-center mb-4"><h3 class="font-label-caps text-label-caps text-on-surface-variant">MANAGED AGENTS</h3><button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high border border-outline-variant text-primary-fixed-dim font-label-caps text-label-caps hover:bg-surface-container-highest transition-colors rounded-sm"><span class="material-symbols-outlined text-[18px]">add</span>ADD NEW AGENT</button></div><div class="border border-outline-variant rounded-sm overflow-hidden"><table class="w-full text-left border-collapse"><thead class="bg-surface-container-low border-b border-outline-variant"><tr class="font-label-caps text-label-caps text-outline"><th class="px-4 py-2 font-normal">AGENT NAME</th><th class="px-4 py-2 font-normal">ROLE</th><th class="px-4 py-2 font-normal">PROVIDER</th><th class="px-4 py-2 font-normal">STATUS</th></tr></thead><tbody class="font-body-sm text-body-sm divide-y divide-outline-variant"><tr class="hover:bg-surface-container-low transition-colors"><td class="px-4 py-3 text-on-surface">Claude 3.5 Sonnet</td><td class="px-4 py-3"><select class="bg-surface-container-lowest border-none p-0 text-body-sm text-primary-fixed-dim focus:ring-0 cursor-pointer"><option>Architect</option><option>Frontend</option><option>Backend</option></select></td><td class="px-4 py-3">Anthropic</td><td class="px-4 py-3"><span class="flex items-center gap-2 text-primary-fixed-dim"><span class="w-2 h-2 bg-primary-fixed-dim rounded-full"></span>Active</span></td></tr><tr class="hover:bg-surface-container-low transition-colors"><td class="px-4 py-3 text-on-surface">GPT-4o</td><td class="px-4 py-3"><select class="bg-surface-container-lowest border-none p-0 text-body-sm text-on-surface-variant focus:ring-0 cursor-pointer"><option>Frontend</option><option>Architect</option><option>Backend</option></select></td><td class="px-4 py-3">OpenAI</td><td class="px-4 py-3"><span class="flex items-center gap-2 text-outline"><span class="w-2 h-2 bg-outline rounded-full"></span>Idle</span></td></tr></tbody></table></div></div><div class="space-y-6 hidden" id="mcp-tab"><div class="flex justify-between items-center mb-4"><h3 class="font-label-caps text-label-caps text-on-surface-variant">CONTEXT SERVERS</h3><button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high border border-outline-variant text-primary-fixed-dim font-label-caps text-label-caps hover:bg-surface-container-highest transition-colors rounded-sm"><span class="material-symbols-outlined text-[18px]">add_link</span>ADD SERVER</button></div><div class="space-y-3"><div class="flex items-center justify-between p-4 bg-surface-container-low border border-outline-variant rounded-sm"><div class="flex items-center gap-4"><span class="material-symbols-outlined text-primary-fixed-dim">search</span><div><div class="text-on-surface font-body-md">Google Search</div><div class="text-outline text-body-sm">mcp-google-search-v1.2</div></div></div><div class="flex items-center gap-4"><span class="flex items-center gap-2 text-primary-fixed-dim text-body-sm"><span class="w-2 h-2 bg-primary-fixed-dim rounded-full"></span>Connected</span><button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined">settings</span></button></div></div><div class="flex items-center justify-between p-4 bg-surface-container-low border border-outline-variant rounded-sm"><div class="flex items-center gap-4"><span class="material-symbols-outlined text-primary-fixed-dim">terminal</span><div><div class="text-on-surface font-body-md">GitHub Context</div><div class="text-outline text-body-sm">mcp-github-repo-tool</div></div></div><div class="flex items-center gap-4"><span class="flex items-center gap-2 text-primary-fixed-dim text-body-sm"><span class="w-2 h-2 bg-primary-fixed-dim rounded-full"></span>Connected</span><button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined">settings</span></button></div></div></div></div><div class="space-y-6 hidden" id="pkg-tab"><div class="relative mb-6"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span><input class="w-full bg-surface-container-lowest border border-outline-variant rounded-sm pl-10 pr-4 py-2 text-body-md focus:border-primary-fixed-dim focus:ring-0 outline-none" placeholder="Search packages (npm, pip, cargo)..." type="text"/></div><div class="border border-outline-variant rounded-sm overflow-hidden"><table class="w-full text-left border-collapse"><thead class="bg-surface-container-low border-b border-outline-variant"><tr class="font-label-caps text-label-caps text-outline"><th class="px-4 py-2 font-normal">PACKAGE</th><th class="px-4 py-2 font-normal">VERSION</th><th class="px-4 py-2 font-normal">LATEST</th><th class="px-4 py-2 font-normal">ACTION</th></tr></thead><tbody class="font-body-sm text-body-sm divide-y divide-outline-variant"><tr class="hover:bg-surface-container-low transition-colors"><td class="px-4 py-3 text-on-surface">tailwindcss</td><td class="px-4 py-3 text-outline">3.4.1</td><td class="px-4 py-3 text-primary-fixed-dim">3.4.1</td><td class="px-4 py-3"><span class="text-outline">Up to date</span></td></tr><tr class="hover:bg-surface-container-low transition-colors"><td class="px-4 py-3 text-on-surface">lucide-react</td><td class="px-4 py-3 text-outline">0.320.0</td><td class="px-4 py-3 text-primary-fixed-dim">0.450.0</td><td class="px-4 py-3"><button class="text-primary-fixed-dim hover:underline">Update</button></td></tr></tbody></table></div></div><div class="space-y-6 hidden" id="ext-tab"><div class="flex justify-between items-center mb-4"><h3 class="font-label-caps text-label-caps text-on-surface-variant">INSTALLED PLUGINS</h3><button class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary-container font-label-caps text-label-caps hover:brightness-110 transition-all rounded-sm"><span class="material-symbols-outlined text-[18px]">shopping_basket</span>EXPLORE MARKETPLACE</button></div><div class="grid grid-cols-1 gap-4"><div class="flex items-center justify-between p-4 bg-surface-container-low border border-outline-variant rounded-sm"><div class="flex items-center gap-4"><div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center rounded"><span class="material-symbols-outlined text-primary-fixed-dim">palette</span></div><div><div class="text-on-surface font-body-md">Obsidian Dark Theme</div><div class="text-outline text-body-sm">v2.0.4 • UI/UX</div></div></div><div class="w-10 h-5 bg-primary-container rounded-full relative cursor-pointer"><div class="absolute right-1 top-1 w-3 h-3 bg-on-primary-container rounded-full"></div></div></div><div class="flex items-center justify-between p-4 bg-surface-container-low border border-outline-variant rounded-sm"><div class="flex items-center gap-4"><div class="w-10 h-10 bg-surface-container-highest flex items-center justify-center rounded"><span class="material-symbols-outlined text-primary-fixed-dim">box</span></div><div><div class="text-on-surface font-body-md">Docker Support</div><div class="text-outline text-body-sm">v1.1.0 • Infrastructure</div></div></div><div class="w-10 h-5 bg-outline rounded-full relative cursor-pointer"><div class="absolute left-1 top-1 w-3 h-3 bg-surface-container-lowest rounded-full"></div></div></div></div></div></div>
+<!-- Dialog Footer Actions -->
+<div class="px-6 py-4 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3">
+<button class="px-6 py-2 font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface border border-outline-variant transition-all hover:bg-surface-container-high active:opacity-80">
+                    CANCEL
+                </button>
+<button class="px-8 py-2 font-label-caps text-label-caps bg-primary-container text-on-primary-container hover:brightness-110 active:opacity-80 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                    SAVE CONFIG
+                </button>
+</div>
+</div>
+</main>
+<!-- Footer (Fixed as per JSON Command) -->
+<footer class="flex justify-between items-center px-4 w-full z-50 fixed bottom-0 h-6 bg-surface-container-lowest border-t border-outline-variant font-code-sm text-code-sm text-secondary">
+<div class="flex items-center gap-4">
+<span>System Ready</span>
+<span class="text-outline-variant">|</span>
+<span>API: Connected</span>
+<span class="text-outline-variant">|</span>
+<span>24ms</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-on-surface-variant hover:text-primary-fixed cursor-default">Terms</span>
+<span class="text-on-surface-variant hover:text-primary-fixed cursor-default">Support</span>
+</div>
+</footer>
+<script>
+        function toggleVisibility(id) {
+            const input = document.getElementById(id);
+            const icon = input.nextElementSibling.querySelector('span');
+            if (input.type === "password") {
+                input.type = "text";
+                icon.innerText = "visibility_off";
+            } else {
+                input.type = "password";
+                icon.innerText = "visibility";
+            }
+        }
+
+        function switchTab(tabId) {
+            // Content toggle
+            document.getElementById('api-tab').classList.add('hidden');
+            document.getElementById('general-tab').classList.add('hidden');
+            document.getElementById(tabId).classList.remove('hidden');
+
+            // Button state toggle
+            const btnApi = document.getElementById('btn-api-tab');
+            const btnGen = document.getElementById('btn-general-tab');
+
+            if(tabId === 'api-tab') {
+                btnApi.classList.add('text-primary-fixed', 'border-primary-fixed');
+                btnApi.classList.remove('text-on-surface-variant', 'border-transparent');
+                btnGen.classList.add('text-on-surface-variant', 'border-transparent');
+                btnGen.classList.remove('text-primary-fixed', 'border-primary-fixed');
+            } else {
+                btnGen.classList.add('text-primary-fixed', 'border-primary-fixed');
+                btnGen.classList.remove('text-on-surface-variant', 'border-transparent');
+                btnApi.classList.add('text-on-surface-variant', 'border-transparent');
+                btnApi.classList.remove('text-primary-fixed', 'border-primary-fixed');
+            }
+        }
+    </script>
+</body></html>

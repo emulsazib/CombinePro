@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DevOS - Nexus IDE Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+            font-size: 18px;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1c20;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b4b3f;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00e38a;
+        }
+        .code-syntax-keyword { color: #ffb4ab; }
+        .code-syntax-func { color: #00e38a; }
+        .code-syntax-string { color: #ffe17a; }
+        .code-syntax-comment { color: #849587; }
+        
+        /* Terminal Cursor Animation */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .terminal-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background-color: #00e38a;
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#ffdd65",
+                        "inverse-primary": "#006d40",
+                        "surface-container": "#1e2024",
+                        "surface-container-highest": "#333539",
+                        "on-primary": "#00391f",
+                        "secondary-container": "#0566d9",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-fixed": "#002110",
+                        "on-surface-variant": "#b9cbbc",
+                        "inverse-surface": "#e2e2e8",
+                        "surface": "#111317",
+                        "background": "#111317",
+                        "on-secondary": "#002e6a",
+                        "secondary-fixed": "#d8e2ff",
+                        "surface-dim": "#111317",
+                        "tertiary": "#fffaff",
+                        "surface-container-lowest": "#0c0e12",
+                        "surface-container-low": "#1a1c20",
+                        "on-error": "#690005",
+                        "inverse-on-surface": "#2f3035",
+                        "outline": "#849587",
+                        "primary-container": "#00ff9c",
+                        "on-tertiary": "#3b2f00",
+                        "secondary": "#adc6ff",
+                        "on-secondary-fixed": "#001a42",
+                        "on-secondary-fixed-variant": "#004395",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "surface-bright": "#37393e",
+                        "on-error-container": "#ffdad6",
+                        "surface-variant": "#333539",
+                        "outline-variant": "#3b4b3f",
+                        "error-container": "#93000a",
+                        "on-surface": "#e2e2e8",
+                        "tertiary-fixed-dim": "#e4c44f",
+                        "on-primary-fixed-variant": "#00522f",
+                        "primary": "#f3fff3",
+                        "tertiary-fixed": "#ffe17a",
+                        "on-tertiary-fixed": "#231b00",
+                        "error": "#ffb4ab",
+                        "primary-fixed": "#56ffa7",
+                        "on-secondary-container": "#e6ecff",
+                        "primary-fixed-dim": "#00e38a",
+                        "on-tertiary-container": "#766000",
+                        "on-primary-container": "#007142",
+                        "surface-tint": "#00e38a",
+                        "on-background": "#e2e2e8",
+                        "on-tertiary-fixed-variant": "#554500"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "8px",
+                        "container-padding": "12px",
+                        "unit": "4px",
+                        "panel-gap": "1px",
+                        "sidebar-width": "260px"
+                    },
+                    "fontFamily": {
+                        "code-md": ["JetBrains Mono"],
+                        "h2": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-md": ["Inter"],
+                        "h1": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "code-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "code-md": ["13px", {"lineHeight": "20px", "fontWeight": "450"}],
+                        "h2": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-caps": ["10px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "h1": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "code-sm": ["11px", {"lineHeight": "16px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container overflow-hidden h-screen">
+<!-- Top Navigation Bar -->
+<header class="flex justify-between items-center px-gutter w-full fixed top-0 z-50 h-12 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-4">
+<h1 class="font-h2 text-h2 text-on-surface tracking-tight">Nexus IDE</h1>
+<nav class="hidden md:flex gap-6 items-center h-full ml-4">
+<a class="font-label-caps text-label-caps text-primary border-b border-primary h-full flex items-center px-2 cursor-pointer active:opacity-80">Project</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant h-full flex items-center px-2 hover:text-primary-container cursor-pointer active:opacity-80">Build</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant h-full flex items-center px-2 hover:text-primary-container cursor-pointer active:opacity-80">Debug</a>
+</nav>
+</div>
+<div class="flex items-center gap-4 h-full">
+<div class="flex items-center gap-2">
+<button class="flex items-center gap-1.5 px-3 py-1 bg-primary-container text-on-primary-container font-label-caps text-label-caps rounded-sm hover:opacity-90 transition-all">
+<span class="material-symbols-outlined !text-[14px]">play_arrow</span>
+                    Run
+                </button>
+<button class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-highest text-on-surface font-label-caps text-label-caps rounded-sm border border-outline-variant hover:bg-surface-container-high">
+<span class="material-symbols-outlined !text-[14px]">sync</span>
+                    Sync
+                </button>
+</div>
+<div class="flex items-center gap-3 border-l border-outline-variant pl-4 h-6">
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">cloud_done</span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">account_tree</span>
+<img alt="Profile avatar" class="w-7 h-7 rounded-full border border-primary-fixed-dim" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvi2sXbKCeBJforGouHJ889ydxUqj39zStuqi8df3ZWAlHKuDc6Od_8_06KAf-QgSV3NfV4yo0ApoEelCZ09Pvn-DKQcLofYncvTjNmo3pu5Et7_hU9MwfIHo5O99-nT9jNLQh6qhGcfnB58550f-K3xQ297ALULeC4wEhVFxCbhqPkT-yZjx9e3IWDKiC6jmar_F1L5JVVKYepXQB79Clo2IN9MmMOhHNUGS7AcLM7U4u2Z60szgf9Ei4xhhBUC4oSPgb1wskTPA"/>
+</div>
+</div>
+</header>
+<!-- Sidebar & Main Content Wrapper -->
+<div class="flex h-screen pt-12 pb-6">
+<!-- Left Side Navigation & File Explorer -->
+<aside class="flex flex-col h-full w-sidebar-width flex-shrink-0 bg-surface-container-low border-r border-outline-variant z-40">
+<div class="flex items-center gap-3 p-4 border-b border-outline-variant">
+<span class="font-h1 text-h1 text-primary-fixed">DevOS</span>
+<span class="font-body-sm text-body-sm text-outline opacity-70">V1.0.4</span>
+</div>
+<nav class="flex-1 overflow-y-auto pt-2">
+<div class="px-3 mb-4">
+<button class="w-full flex items-center gap-3 px-3 py-2 text-primary-fixed bg-surface-container-highest border-l-2 border-primary-fixed-dim transition-colors duration-150 font-body-sm text-body-sm">
+<span class="material-symbols-outlined">folder_open</span>
+                        Explorer
+                    </button>
+<button class="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 font-body-sm text-body-sm">
+<span class="material-symbols-outlined">smart_toy</span>
+                        Agents
+                    </button>
+</div>
+<!-- Tree View -->
+<div class="px-2 space-y-0.5">
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface hover:bg-surface-container-high cursor-pointer transition-all">
+<span class="material-symbols-outlined !text-[16px] text-outline">expand_more</span>
+<span class="material-symbols-outlined !text-[16px] text-tertiary-fixed-dim">folder</span>
+<span class="text-body-sm">src</span>
+</div>
+<div class="pl-6 space-y-0.5">
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface hover:bg-surface-container-high cursor-pointer transition-all border-l-2 border-primary-fixed-dim bg-surface-container-highest">
+<span class="material-symbols-outlined !text-[16px] text-primary-fixed-dim">description</span>
+<span class="text-body-sm">main.py</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-all">
+<span class="material-symbols-outlined !text-[16px] text-on-surface-variant">description</span>
+<span class="text-body-sm">utils.py</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-all">
+<span class="material-symbols-outlined !text-[16px] text-outline">expand_more</span>
+<span class="material-symbols-outlined !text-[16px] text-tertiary-fixed-dim">folder</span>
+<span class="text-body-sm">agents</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-1 text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-all">
+<span class="material-symbols-outlined !text-[16px] text-outline">chevron_right</span>
+<span class="material-symbols-outlined !text-[16px] text-tertiary-fixed-dim">folder</span>
+<span class="text-body-sm">tests</span>
+</div>
+</div>
+</nav>
+<footer class="mt-auto border-t border-outline-variant p-2">
+<button class="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-150 font-body-sm text-body-sm">
+<span class="material-symbols-outlined">settings</span>
+                    Settings
+                </button>
+</footer>
+</aside>
+<!-- Main Workspace -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface">
+<!-- Tabs Row -->
+<div class="flex bg-surface-container-lowest border-b border-outline-variant h-9">
+<div class="flex items-center px-4 gap-2 bg-surface border-r border-outline-variant border-t-2 border-primary-fixed-dim text-primary text-body-sm cursor-default">
+<span class="material-symbols-outlined !text-[14px]">difference</span>
+                    Diff View
+                    <span class="material-symbols-outlined !text-[14px] ml-2 hover:text-error cursor-pointer">close</span>
+</div>
+<div class="flex items-center px-4 gap-2 text-on-surface-variant border-r border-outline-variant text-body-sm hover:bg-surface-container transition-all cursor-pointer">
+<span class="material-symbols-outlined !text-[14px]">description</span>
+                    main.py
+                </div>
+</div>
+<!-- Workspace Center: Split View + Bottom Panel -->
+<div class="flex-1 flex flex-col min-h-0">
+<!-- Top Half: Code Diff & AI Analysis side-by-side -->
+<div class="flex-1 flex min-h-0 border-b border-outline-variant">
+<!-- Read-Only Split Diff View -->
+<div class="flex-1 flex flex-col bg-surface-container-lowest min-w-0 border-r border-outline-variant">
+<div class="flex items-center gap-2 p-2 border-b border-outline-variant bg-surface-container-low">
+<span class="material-symbols-outlined !text-[14px] text-primary-fixed-dim">edit</span>
+<span class="text-on-surface font-code-md text-code-sm">ast_skeleton.py</span>
+<span class="text-outline opacity-60 ml-2 font-code-md text-code-sm">Changes detected</span>
+</div>
+<div class="flex-1 overflow-auto flex font-code-md text-code-sm select-none">
+<div class="flex-1 border-r border-outline-variant p-4 relative bg-surface-container-lowest">
+<div class="absolute left-0 top-0 bottom-0 w-8 bg-surface-container-low border-r border-outline-variant flex flex-col items-center pt-4 gap-1 opacity-40">
+<span>10</span><span>11</span><span>12</span><span>13</span><span>14</span>
+</div>
+<div class="pl-8 space-y-1">
+<div class="whitespace-pre">    first = body.named_children[0]</div>
+<div class="bg-error-container/30 -mx-4 px-4 text-error">    if first.type != "expression_statement" or not first.children:</div>
+<div class="bg-error-container/30 -mx-4 px-4 text-error">        return ""</div>
+<div class="h-12 bg-surface-container-high/20 -mx-4 flex items-center justify-center">
+<div class="w-full h-full opacity-10" style="background-image: repeating-linear-gradient(45deg, #849587 0, #849587 1px, transparent 0, transparent 50%); background-size: 10px 10px;"></div>
+</div>
+<div class="whitespace-pre">    string_node = first.children[0]</div>
+</div>
+</div>
+<div class="flex-1 p-4 relative bg-surface-container-lowest">
+<div class="absolute left-0 top-0 bottom-0 w-8 bg-surface-container-low border-r border-outline-variant flex flex-col items-center pt-4 gap-1 opacity-40">
+<span>10</span><span>11</span><span>12</span><span>13</span><span>14</span>
+</div>
+<div class="pl-8 space-y-1">
+<div class="whitespace-pre">    first = body.named_children[0]</div>
+<div class="bg-primary-container/20 -mx-4 px-4 text-primary-fixed-dim">    if first.type == "string":</div>
+<div class="bg-primary-container/20 -mx-4 px-4 text-primary-fixed-dim">        string_node = first</div>
+<div class="bg-primary-container/20 -mx-4 px-4 text-primary-fixed-dim">    elif first.type == "expression_statement" and first.children:</div>
+<div class="whitespace-pre">        string_node = first.children[0]</div>
+</div>
+</div>
+</div>
+<!-- AI Prompt Box at the bottom of Diff View -->
+<div class="p-3 bg-surface-container-low border-t border-outline-variant">
+<div class="relative flex items-center bg-surface-container-highest border border-outline-variant rounded-lg p-1 group focus-within:border-primary-fixed-dim transition-colors">
+<span class="material-symbols-outlined !text-[20px] ml-2 text-primary-fixed-dim">auto_awesome</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-body-sm text-on-surface py-2 px-3 placeholder:text-outline/50" placeholder="Command agents for this diff... (e.g. 'Optimize performance')" type="text"/>
+<button class="mr-1 p-1.5 bg-primary-container text-on-primary-container rounded flex items-center justify-center hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined !text-[18px]">send</span>
+</button>
+</div>
+</div>
+</div>
+<!-- AI Analysis Panel -->
+<aside class="w-80 flex flex-col bg-surface border-l border-outline-variant">
+<div class="p-3 border-b border-outline-variant flex items-center gap-2 bg-surface-container-low">
+<span class="material-symbols-outlined !text-[16px] text-primary-fixed-dim">analytics</span>
+<span class="font-label-caps text-label-caps text-on-surface">AI Analysis</span>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-4">
+<div class="space-y-2">
+<h4 class="text-body-sm font-semibold text-primary-fixed-dim">Change Rationale</h4>
+<p class="text-body-sm text-on-surface-variant leading-relaxed">
+                                    The logic was simplified to handle string literals directly as children of the function body. This reduces branching complexity in the AST traversal.
+                                </p>
+</div>
+<div class="p-3 bg-surface-container-high rounded border border-outline-variant">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined !text-[14px] text-secondary">verified</span>
+<span class="text-label-caps text-secondary">Verified</span>
+</div>
+<p class="text-body-sm text-outline">Complexity reduced by <span class="text-primary-fixed-dim">14%</span>. Memory footprint optimized.</p>
+</div>
+<div class="space-y-2">
+<h4 class="text-body-sm font-semibold text-outline">Suggested Next Steps</h4>
+<ul class="space-y-1">
+<li class="text-body-sm text-on-surface-variant flex gap-2">
+<span class="text-primary-fixed-dim">1.</span> Run docstring validation
+                                    </li>
+<li class="text-body-sm text-on-surface-variant flex gap-2">
+<span class="text-primary-fixed-dim">2.</span> Update unit tests in agents/
+                                    </li>
+</ul>
+</div>
+</div>
+</aside>
+</div>
+<!-- Bottom Panel: Terminal -->
+<div class="h-48 flex flex-col bg-surface-container-lowest border-t border-outline-variant">
+<div class="flex items-center bg-surface-container-low px-3 border-b border-outline-variant">
+<div class="flex gap-4 h-9">
+<button class="flex items-center gap-2 px-2 border-b-2 border-primary-fixed-dim text-primary text-label-caps">
+<span class="material-symbols-outlined !text-[14px]">terminal</span>
+                                Terminal
+                            </button>
+<button class="flex items-center gap-2 px-2 text-on-surface-variant hover:text-on-surface text-label-caps">
+<span class="material-symbols-outlined !text-[14px]">checklist</span>
+                                Output
+                            </button>
+<button class="flex items-center gap-2 px-2 text-on-surface-variant hover:text-on-surface text-label-caps">
+<span class="material-symbols-outlined !text-[14px]">bug_report</span>
+                                Debug Console
+                            </button>
+</div>
+<div class="ml-auto flex items-center gap-3">
+<span class="material-symbols-outlined !text-[14px] text-outline cursor-pointer hover:text-on-surface">add</span>
+<span class="material-symbols-outlined !text-[14px] text-outline cursor-pointer hover:text-on-surface">close</span>
+</div>
+</div>
+<div class="flex-1 p-3 font-code-sm text-code-sm text-on-surface-variant overflow-auto">
+<div class="flex gap-2">
+<span class="text-primary-fixed-dim">nexus@devos:~/src$</span>
+<span class="text-on-surface">python -m pytest tests/test_ast.py</span>
+</div>
+<div class="mt-1">============================= test session starts ==============================</div>
+<div>platform linux -- Python 3.10.12, pytest-7.4.3</div>
+<div class="text-primary-fixed-dim">collected 5 items</div>
+<div class="mt-1">
+                            tests/test_ast.py <span class="text-primary-fixed-dim">. . . . .</span> <span class="text-primary-fixed-dim">[100%]</span>
+</div>
+<div class="mt-1 text-primary-fixed-dim">============================== 5 passed in 0.12s ===============================</div>
+<div class="flex gap-2 mt-2">
+<span class="text-primary-fixed-dim">nexus@devos:~/src$</span>
+<span class="terminal-cursor"></span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Side: Agent Management -->
+<aside class="w-72 bg-surface-container-low border-l border-outline-variant flex flex-col h-full overflow-hidden">
+<div class="p-3 border-b border-outline-variant flex justify-between items-center bg-surface-container">
+<span class="font-label-caps text-label-caps text-on-surface">Agent Cluster</span>
+<span class="material-symbols-outlined text-primary-fixed-dim cursor-pointer">add_circle</span>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-2">
+<!-- Agent Card 1 -->
+<div class="p-3 bg-surface-container-high border border-outline-variant rounded hover:border-primary-fixed-dim transition-all group">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary-fixed animate-pulse"></div>
+<span class="font-body-md text-on-surface font-semibold">Claude 3.5</span>
+</div>
+<span class="font-label-caps text-[8px] px-1.5 py-0.5 bg-primary-container text-on-primary-container rounded-full">ACTIVE</span>
+</div>
+<p class="text-body-sm text-outline mb-3">Refining backend API controllers and database migrations.</p>
+<div class="flex justify-between items-center">
+<div class="flex -space-x-2">
+<span class="material-symbols-outlined !text-[14px] text-primary-fixed-dim">terminal</span>
+<span class="material-symbols-outlined !text-[14px] text-secondary">database</span>
+</div>
+<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined !text-[16px] text-on-surface-variant hover:text-error cursor-pointer">stop_circle</span>
+<span class="material-symbols-outlined !text-[16px] text-on-surface-variant hover:text-primary-fixed-dim cursor-pointer">edit</span>
+</div>
+</div>
+</div>
+<!-- Agent Card 2 -->
+<div class="p-3 bg-surface-container-lowest border border-outline-variant rounded opacity-80">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-outline"></div>
+<span class="font-body-md text-on-surface">GPT-4 Bug Fixer</span>
+</div>
+<span class="font-label-caps text-[8px] px-1.5 py-0.5 bg-surface-container-highest text-outline rounded-full">IDLE</span>
+</div>
+<p class="text-body-sm text-outline opacity-60">Waiting for stack trace input to begin diagnostic sweep.</p>
+</div>
+</div>
+<!-- Visual Asset Placeholder -->
+<div class="p-3 border-t border-outline-variant h-32 overflow-hidden relative">
+<div class="relative z-10">
+<h3 class="font-label-caps text-label-caps text-outline mb-1">CLUSTER LOAD</h3>
+<div class="flex items-end gap-1 h-16">
+<div class="flex-1 bg-primary-fixed-dim/20 h-[40%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/40 h-[60%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/30 h-[45%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/80 h-[90%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/50 h-[55%]"></div>
+<div class="flex-1 bg-primary-fixed-dim/20 h-[30%]"></div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- Bottom: Event Bus Log Terminal -->
+<footer class="h-6 w-full fixed bottom-0 z-50 flex justify-between items-center px-4 bg-surface-container-lowest border-t border-outline-variant cursor-default">
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 text-primary-fixed-dim font-code-sm text-code-sm">
+<span class="material-symbols-outlined !text-[12px]">terminal</span>
+<span>[EVENT BUS]</span>
+<div class="text-on-surface-variant flex gap-4 overflow-hidden whitespace-nowrap" id="event-log">
+<span>14:02:11 Core sequence initiated...</span>
+<span>14:02:12 Agent 'Claude' connected via Webhook...</span>
+<span>14:02:15 Syncing workspace state with remote...</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 font-code-sm text-code-sm text-secondary">
+<span class="text-on-surface-variant">System Ready | API: Connected | 24ms</span>
+<div class="flex gap-2">
+<span class="hover:text-primary-fixed cursor-pointer transition-colors">Terms</span>
+<span class="hover:text-primary-fixed cursor-pointer transition-colors">Support</span>
+</div>
+</div>
+</footer>
+<script>
+        // Simple micro-interaction for the event bus scrolling
+        const logEntries = [
+            "14:02:20 Analyzing PR #441 for regressions...",
+            "14:02:22 Memory usage: 1.2GB/16GB",
+            "14:02:25 Hot-reload active on port 3000",
+            "14:02:28 agent.thought: 'Optimizing DB query...'",
+            "14:02:30 14 file changes detected in /src"
+        ];
+        
+        let index = 0;
+        const logContainer = document.getElementById('event-log');
+        
+        setInterval(() => {
+            const span = document.createElement('span');
+            span.className = 'text-primary-fixed-dim animate-pulse';
+            span.textContent = logEntries[index % logEntries.length];
+            
+            if (logContainer.children.length > 3) {
+                logContainer.removeChild(logContainer.children[0]);
+            }
+            
+            logContainer.appendChild(span);
+            index++;
+            
+            setTimeout(() => span.classList.remove('animate-pulse'), 1000);
+        }, 4000);
+    </script>
+</body></html>
