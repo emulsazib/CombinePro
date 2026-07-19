@@ -18,7 +18,14 @@ WORK="$ROOT/installer/work"
 DMG="$DIST/${APP_NAME}-${VERSION}-macOS.dmg"
 
 echo "==> Checking toolchain"
-[ -x "$PY" ] || { echo "No Python at $PY (set PYTHON=...)"; exit 1; }
+# Resolve to an absolute path. `command -v` handles both a bare name on PATH
+# (CI sets PYTHON=python) and an explicit path; `[ -x ]` alone would only ever
+# test a file relative to the cwd.
+if ! PY="$(command -v "$PY")"; then
+  echo "No Python found for '${PYTHON:-$ROOT/.venv/bin/python}' (set PYTHON=/path/to/python)"
+  exit 1
+fi
+echo "    python: $PY ($("$PY" --version 2>&1))"
 "$PY" -c "import PyInstaller" 2>/dev/null || { echo "Installing PyInstaller"; "$PY" -m pip install -q pyinstaller; }
 
 echo "==> Installing sidecar dependencies (bundled into the app)"
