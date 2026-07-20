@@ -12,6 +12,8 @@ import json
 import logging
 from dataclasses import dataclass
 
+from app.agents.roles import ROLE_PROMPTS
+from app.agents.roles import label as role_label
 from app.core.events import AgentResult, CrossDomainSignal, FileChange, FileWrite, TaskRequest
 
 log = logging.getLogger(__name__)
@@ -110,6 +112,7 @@ class AgentContext:
     skeleton: str
     target_file: str
     target_content: str
+    governance: str = ""  # compact knbase rules/phase excerpt ("" when unavailable)
 
 
 class AgentError(RuntimeError):
@@ -120,6 +123,13 @@ class AgentError(RuntimeError):
 
 class BaseAgent(abc.ABC):
     provider = "base"
+    # Functional role, stamped by the orchestrator after construction (like
+    # `state`) so connectors keep their two-argument constructors and built-in
+    # agents can be rebuilt from Config without losing their role.
+    role: str = ""
+    # False when the user has deactivated this agent: it stays in the roster and
+    # keeps its configuration, but the orchestrator will not wake it.
+    enabled: bool = True
 
     def __init__(self, name: str, model: str) -> None:
         self.name = name
@@ -130,10 +140,22 @@ class BaseAgent(abc.ABC):
     async def _complete(self, system_static: str, system_skeleton: str, user: str) -> str:
         """One provider API call returning the raw JSON reply text."""
 
+    def system_prompt(self) -> str:
+        """The shared contract, plus this agent's role block when it has one.
+
+        Role blocks only redirect what goes into the existing five result
+        fields, so RESULT_SCHEMA — and every provider's strict-schema path —
+        stays untouched.
+        """
+        block = ROLE_PROMPTS.get(self.role, "")
+        if not block:
+            return SYSTEM_PROMPT
+        return f"{SYSTEM_PROMPT}\n--- Your assigned role: {role_label(self.role)} ---\n{block}\n"
+
     async def wake(self, task: TaskRequest, ctx: AgentContext) -> AgentResult:
         user = self._build_user_message(task, ctx)
         try:
-            raw = await self._complete(SYSTEM_PROMPT, ctx.skeleton, user)
+            raw = await self._complete(self.system_prompt(), ctx.skeleton, user)
             return self._parse_result(task, raw)
         except AgentError as exc:
             detail = str(exc) + (f" (retry after {exc.retry_after:.0f}s)" if exc.retry_after else "")
@@ -153,6 +175,14 @@ class BaseAgent(abc.ABC):
             parts.append(f"\n--- Target file: {ctx.target_file} ---\n{ctx.target_content}")
         else:
             parts.append("\n(No target file: respond with analysis; files_changed change_type 'none'.)")
+        if ctx.governance:
+            parts.append(f"\n--- Project governance (knbase) ---\n{ctx.governance}")
+        if task.plan:
+            parts.append(
+                f"\n--- Implementation plan (authored by the Planning agent) ---\n{task.plan}\n"
+                "Implement the part of this plan that belongs to your role and domain. "
+                "Do not re-plan or redesign it."
+            )
         return "\n".join(parts)
 
     def _parse_result(self, task: TaskRequest, raw: str) -> AgentResult:
