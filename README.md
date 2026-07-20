@@ -10,6 +10,10 @@
 
 Most AI coding tools are a single assistant in a chat box. CombinePro is an **AI agent orchestration platform**: you allocate domains and roles to several large language models, and they work in parallel — a Planning agent designs, a Backend agent implements, a Frontend agent builds the UI — without stepping on each other's files.
 
+![CombinePro multi-agent AI IDE showing the Explorer file tree, code editor, prompt bar and System Terminal, with the live Agent Cluster panel on the right tracking Claude, OpenAI, Gemini and Kimi agents](docs/combinepro-multi-agent-ai-ide-screenshot.png)
+
+<p align="center"><em>The Explorer view — file tree, editor, integrated terminal, and the live agent cluster with each model's status.</em></p>
+
 ---
 
 ## Table of contents
