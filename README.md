@@ -49,8 +49,8 @@ Grab an installer from the latest release, or build one yourself (below).
 
 | Platform | File | How to install |
 |---|---|---|
-| macOS | `CombinePro-1.0.4-macOS.dmg` | Open the DMG, drag **CombinePro** onto **Applications**. |
-| Windows | `CombinePro-1.0.4-Windows-Setup.exe` | Double-click and follow the wizard. |
+| macOS | `CombinePro-1.0.5-macOS.dmg` | Open the DMG, drag **CombinePro** onto **Applications**. |
+| Windows | `CombinePro-1.0.5-Windows-Setup.exe` | Double-click and follow the wizard. |
 
 The app is self-contained — Python, Qt and all dependencies are bundled. Your
 API keys are stored per-user (`~/Library/Application Support/CombinePro/.env` on
@@ -67,7 +67,7 @@ Delta Memory offline — visible any time in *Settings → Memory & MCP*.
 ## Building the installers
 
 ```sh
-# macOS  →  installer/dist/CombinePro-1.0.4-macOS.dmg
+# macOS  →  installer/dist/CombinePro-1.0.5-macOS.dmg
 ./installer/build_macos.sh
 
 # Windows (must run ON Windows)  →  installer/dist/...-Windows-Setup.exe
@@ -91,7 +91,7 @@ Optional but recommended for distribution:
 CODESIGN_IDENTITY="Developer ID Application: You (TEAMID)" ./installer/build_macos.sh
 
 # Windows — sign the setup .exe with your certificate
-signtool sign /fd SHA256 /a installer\dist\CombinePro-1.0.4-Windows-Setup.exe
+signtool sign /fd SHA256 /a installer\dist\CombinePro-1.0.5-Windows-Setup.exe
 ```
 
 In CI, set the `MACOS_CODESIGN_IDENTITY` repository secret.

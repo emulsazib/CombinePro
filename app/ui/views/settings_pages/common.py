@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.ui import theme
+from app.ui import feather, theme
 
 
 class SettingsPage(QScrollArea):
@@ -32,6 +32,7 @@ class SettingsPage(QScrollArea):
         super().__init__()
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
+        self.verticalScrollBar().setSingleStep(12)
 
         body = QWidget()
         self.body = QVBoxLayout(body)
@@ -119,16 +120,24 @@ def labeled_field(
     row.addWidget(field, 1)
 
     if secret:
-        eye = QPushButton("\U0001f441")
+        eye = QPushButton("Show")
         eye.setProperty("variant", "ghost")
         eye.setCheckable(True)
-        eye.setFixedWidth(40)
-        eye.setToolTip("Show/hide")
-        eye.toggled.connect(
-            lambda on, f=field: f.setEchoMode(
-                QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password
-            )
-        )
+        eye.setIcon(feather.icon("eye", theme.TEXT_MUTED, 14))
+        eye.setIconSize(feather.size_hint(14))
+        eye.setFixedWidth(74)
+        eye.setCursor(Qt.CursorShape.PointingHandCursor)
+        eye.setToolTip("Reveal the stored key")
+
+        def _toggle(on: bool, f: QLineEdit = field, b: QPushButton = eye) -> None:
+            f.setEchoMode(QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password)
+            # A checkable ghost button has no styled :checked state, so the
+            # label is what tells the user which mode they are in.
+            b.setText("Hide" if on else "Show")
+            b.setIcon(feather.icon("eye-off" if on else "eye", theme.TEXT_MUTED, 14))
+            b.setToolTip("Mask the key again" if on else "Reveal the stored key")
+
+        eye.toggled.connect(_toggle)
         row.addWidget(eye)
     box.addLayout(row)
     return wrap, field
@@ -185,16 +194,21 @@ def action_row(name: str, desc: str, button: QPushButton | None, *, last: bool =
     return row
 
 
-def primary(text: str) -> QPushButton:
+def _button(text: str, variant: str, icon: str, tint: str) -> QPushButton:
     # Escape '&' so Qt renders it literally instead of as a mnemonic accelerator.
-    btn = QPushButton(text.replace("&", "&&"))
-    btn.setProperty("variant", "primary")
+    label = f"  {text}" if icon else text
+    btn = QPushButton(label.replace("&", "&&"))
+    btn.setProperty("variant", variant)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    if icon:
+        btn.setIcon(feather.icon(icon, tint, 15))
+        btn.setIconSize(feather.size_hint(15))
     return btn
 
 
-def ghost(text: str) -> QPushButton:
-    btn = QPushButton(text.replace("&", "&&"))
-    btn.setProperty("variant", "ghost")
-    btn.setCursor(Qt.CursorShape.PointingHandCursor)
-    return btn
+def primary(text: str, *, icon: str = "") -> QPushButton:
+    return _button(text, "primary", icon, theme.ON_ACCENT)
+
+
+def ghost(text: str, *, icon: str = "") -> QPushButton:
+    return _button(text, "ghost", icon, theme.TEXT_MUTED)

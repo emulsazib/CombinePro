@@ -23,6 +23,9 @@ IGNORE_GLOBS: tuple[str, ...] = (
     ".git/*", ".git", "node_modules/*", ".venv/*", "venv/*", "__pycache__/*",
     "*.pyc", ".combinepro/*", ".knbase/*", "memory-bank/*", "dist/*", "build/*",
     ".DS_Store", "*.lock", "*.log", ".idea/*", ".vscode/*",
+    # knbase's initProject() writes AGENTS.md at the project root; without this
+    # the bootstrap would trigger a spurious wake for whoever owns the root.
+    "AGENTS.md",
 )
 
 

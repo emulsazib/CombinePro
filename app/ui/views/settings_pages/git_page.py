@@ -42,7 +42,7 @@ class GitPage(SettingsPage):
         self._commits = self._mono_box("")
         self.body.addWidget(self._commits)
 
-        refresh = ghost("↻  Refresh")
+        refresh = ghost("Refresh", icon="refresh")
         refresh.clicked.connect(self.refresh)
         self.add_actions(refresh)
         self.add_status_line()

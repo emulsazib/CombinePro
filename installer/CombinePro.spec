@@ -120,12 +120,12 @@ if IS_MAC:
         name="CombinePro.app",
         icon=icon_file,
         bundle_identifier="ai.combinepro.app",
-        version="1.0.4",
+        version="1.0.5",
         info_plist={
             "CFBundleName": "CombinePro",
             "CFBundleDisplayName": "CombinePro",
-            "CFBundleShortVersionString": "1.0.4",
-            "CFBundleVersion": "1.0.4",
+            "CFBundleShortVersionString": "1.0.5",
+            "CFBundleVersion": "1.0.5",
             "NSHighResolutionCapable": True,
             # Qt draws its own dark chrome; keep macOS from re-tinting it.
             "NSRequiresAquaSystemAppearance": False,

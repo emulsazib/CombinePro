@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from app.agents import roles
 from app.config import AGENT_NAMES
 from app.ui import theme
 from app.ui.views.settings_pages.common import SettingsPage, ghost, primary
@@ -16,13 +17,14 @@ class AgentsPage(SettingsPage):
                 "agents you add here are stored in .combinepro/agents.json and reload "
                 "on startup.")
 
-    def __init__(self, orchestrator, on_add, on_remove) -> None:  # noqa: ANN001
+    def __init__(self, orchestrator, on_add, on_remove, on_set_role=None) -> None:  # noqa: ANN001
         super().__init__()
         self.orchestrator = orchestrator
         self._on_add = on_add
         self._on_remove = on_remove
+        self._on_set_role = on_set_role
 
-        add = primary("⊕  Add New Agent")
+        add = primary("Add New Agent", icon="plus")
         add.clicked.connect(self._add_clicked)
         self.add_actions(add)
 
@@ -71,7 +73,12 @@ class AgentsPage(SettingsPage):
         kind.setProperty("chip", True)
         top.addWidget(kind)
         top.addStretch(1)
-        state = "IDLE" if getattr(agent, "state", "dormant") == "dormant" else "ACTIVE"
+        if not getattr(agent, "enabled", True):
+            state = "OFF"
+        elif getattr(agent, "state", "dormant") == "dormant":
+            state = "IDLE"
+        else:
+            state = "ACTIVE"
         top.addWidget(StateBadge(state))
         v.addLayout(top)
 
@@ -80,19 +87,38 @@ class AgentsPage(SettingsPage):
             detail = f"provider <b>stub</b>  ·  <b>no key configured</b>"
         else:
             detail = f"provider <b>{agent.provider}</b>  ·  model <b>{agent.model or '—'}</b>"
-        meta = QLabel(f"{detail}  ·  domain <b>{domain_text}</b>")
+        role_text = roles.label(agent.role).lower() if getattr(agent, "role", "") else "unassigned"
+        meta = QLabel(f"{detail}  ·  role <b>{role_text}</b>  ·  domain <b>{domain_text}</b>")
         meta.setWordWrap(True)
         meta.setStyleSheet(f"color:{theme.TEXT_MUTED}; background:transparent;")
         v.addWidget(meta)
 
         actions = QHBoxLayout()
+        actions.setSpacing(8)
+        # Role selector. This is the ONLY place a built-in agent's role can be
+        # set — built-ins are rebuilt from Config and have no profile to edit.
+        if self._on_set_role is not None:
+            role_label = QLabel("Role")
+            role_label.setProperty("muted", True)
+            actions.addWidget(role_label)
+            combo = QComboBox()
+            combo.addItem("Unassigned", "")
+            for role_id, text in roles.ROLES:
+                combo.addItem(text, role_id)
+            index = combo.findData(getattr(agent, "role", "") or "")
+            combo.setCurrentIndex(max(0, index))
+            combo.setMinimumWidth(150)
+            combo.currentIndexChanged.connect(
+                lambda _i, n=name, c=combo: self._role_changed(n, str(c.currentData() or ""))
+            )
+            actions.addWidget(combo)
         actions.addStretch(1)
         if built_in:
             note = QLabel("Disable by clearing its key in API Configuration.")
             note.setProperty("muted", True)
             actions.addWidget(note)
         else:
-            remove = ghost("Remove")
+            remove = ghost("Remove", icon="trash")
             remove.clicked.connect(lambda _=False, n=name: self._remove_clicked(n))
             actions.addWidget(remove)
         v.addLayout(actions)
@@ -104,6 +130,14 @@ class AgentsPage(SettingsPage):
         self.refresh()
         if added:
             self.report(f"Agent '{added}' registered.", theme.OK)
+
+    def _role_changed(self, name: str, role: str) -> None:
+        applied = self._on_set_role(name, role)
+        self.report(
+            f"Agent '{name}' role set to {roles.label(applied).lower()}."
+            if applied else f"Agent '{name}' role cleared.",
+            theme.OK,
+        )
 
     def _remove_clicked(self, name: str) -> None:
         if self._on_remove(name):

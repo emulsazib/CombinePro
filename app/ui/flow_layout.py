@@ -52,7 +52,24 @@ class FlowLayout(QLayout):
         self._do_layout(rect, test_only=False)
 
     def sizeHint(self) -> QSize:
-        return self.minimumSize()
+        """Preferred size: everything on one row.
+
+        Returning minimumSize() here (the widest single item) makes a parent
+        layout offer only one item's width, so the flow wraps into a column even
+        when there is room for a row. Qt treats sizeHint as *preferred* and will
+        still shrink us to minimumSize when space is tight, which is what keeps
+        the wrapping behaviour intact.
+        """
+        if not self._items:
+            return self.minimumSize()
+        margins = self.contentsMargins()
+        width = sum(item.sizeHint().width() for item in self._items)
+        width += self.spacing() * (len(self._items) - 1)
+        height = max(item.sizeHint().height() for item in self._items)
+        return QSize(
+            width + margins.left() + margins.right(),
+            height + margins.top() + margins.bottom(),
+        )
 
     def minimumSize(self) -> QSize:
         size = QSize()
@@ -70,10 +87,14 @@ class FlowLayout(QLayout):
         line_height = 0
         spacing = self.spacing()
 
+        # QRect.right() is inclusive (x + width - 1), so comparing against it
+        # wraps the last item when the row needs exactly the available width.
+        limit = effective.x() + effective.width()
+
         for item in self._items:
             hint = item.sizeHint()
             next_x = x + hint.width() + spacing
-            if next_x - spacing > effective.right() and line_height > 0:
+            if next_x - spacing > limit and line_height > 0:
                 x = effective.x()
                 y = y + line_height + spacing
                 next_x = x + hint.width() + spacing

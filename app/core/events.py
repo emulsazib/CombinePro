@@ -46,6 +46,8 @@ class TaskRequest(Event):
     description: str = ""
     target_file: str = ""  # relative path; the ONE file the agent may mutate
     urgency: Urgency = "low"
+    plan: str = ""  # upstream plan text from the Planning agent ("" = none)
+    phase: Literal["plan", "act", ""] = ""  # pipeline phase this wake belongs to
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -102,6 +104,28 @@ class AgentStateChanged(Event):
 class DomainAssigned(Event):
     folder: str  # relative folder prefix ("" clears)
     agent_name: str  # "" = unassigned
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RoleAssigned(Event):
+    agent_name: str
+    role: str  # role id ("" = unassigned)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AgentEnabledChanged(Event):
+    """A user activated or deactivated an agent from the cluster overview."""
+
+    agent_name: str
+    enabled: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PlanReady(Event):
+    """A Planning agent finished; its plan is about to drive the action phase."""
+
+    agent_name: str
+    plan: str
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

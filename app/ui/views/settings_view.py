@@ -33,22 +33,18 @@ from app.ui.views.settings_pages import (
 from app.ui.widgets import NavButton, NavSidebar
 
 _CATEGORIES = (
-    ("api", "API Configuration"),
-    ("general", "General"),
-    ("models", "AI Models"),
-    ("agents", "Agents"),
-    ("memory", "Memory & MCP"),
-    ("git", "Git & PRs"),
-    ("usage", "Usage & Diagnostics"),
+    ("api", "API Configuration", "key"),
+    ("general", "General", "sliders"),
+    ("models", "AI Models", "layers"),
+    ("agents", "Agents", "cpu"),
+    ("memory", "Memory & MCP", "hard-drive"),
+    ("git", "Git & PRs", "git-branch"),
+    ("usage", "Usage & Diagnostics", "bar-chart"),
 )
 
 
 class SettingsView(QWidget):
     view_requested = pyqtSignal(str)
-    # Raised when the agent roster changes so the main window can resync cards.
-    agents_changed = pyqtSignal()
-    # Raised when a page needs the app to reload Config from the environment.
-    config_reload_requested = pyqtSignal()
 
     def __init__(
         self,
@@ -56,12 +52,14 @@ class SettingsView(QWidget):
         orchestrator: Orchestrator,
         workspace: Path,
         stats: SessionStats | None = None,
+        state=None,  # noqa: ANN001  — AppState, the configuration-change hub
     ) -> None:
         super().__init__()
         self.config = config
         self.orchestrator = orchestrator
         self.workspace = workspace
         self.stats = stats or SessionStats()
+        self.state = state
         # Set by MainWindow: () -> str|None opening the Add-Agent dialog.
         self.add_agent_handler = None
         # Set by MainWindow: (int) -> None applying an editor font size.
@@ -84,7 +82,9 @@ class SettingsView(QWidget):
         self.api_page = ApiPage(config, self._reload_agents)
         self.general_page = GeneralPage(config, workspace, self._apply_font_size)
         self.models_page = ModelsPage(config, self._reload_agents, self._apply_knobs)
-        self.agents_page = AgentsPage(orchestrator, self._add_agent, self._remove_agent)
+        self.agents_page = AgentsPage(
+            orchestrator, self._add_agent, self._remove_agent, self._set_role
+        )
         self.memory_page = MemoryPage(config, orchestrator)
         self.git_page = GitPage(workspace)
         self.usage_page = UsagePage(config, orchestrator, workspace, self.stats)
@@ -98,10 +98,22 @@ class SettingsView(QWidget):
             "git": self.git_page,
             "usage": self.usage_page,
         }
-        for key, _ in _CATEGORIES:
+        for key, _label, _glyph in _CATEGORIES:
             self.stack.addWidget(self._pages[key])
 
+        if state is not None:
+            # Any roster/role/key change anywhere refreshes the pages that render
+            # that state, so they are never stale when the user switches to them.
+            state.rosterChanged.connect(self._refresh_live_pages)
+
         self._select("api")
+
+    def _refresh_live_pages(self) -> None:
+        """Re-read live state into every page that displays it."""
+        self._fresh_config()
+        self.agents_page.refresh()
+        self.api_page.refresh()
+        self.models_page.refresh()
 
     # ----------------------------------------------------------- category rail
     def _build_category_rail(self) -> QWidget:
@@ -125,8 +137,8 @@ class SettingsView(QWidget):
         v.addWidget(head)
 
         self._cat_buttons: dict[str, NavButton] = {}
-        for key, label in _CATEGORIES:
-            btn = NavButton("•", label)
+        for key, label, glyph in _CATEGORIES:
+            btn = NavButton(glyph, label)
             btn.clicked.connect(lambda _=False, k=key: self._select(k))
             v.addWidget(btn)
             self._cat_buttons[key] = btn
@@ -134,7 +146,7 @@ class SettingsView(QWidget):
         return rail
 
     def _select(self, key: str) -> None:
-        keys = [k for k, _ in _CATEGORIES]
+        keys = [k for k, _label, _glyph in _CATEGORIES]
         if key not in keys:
             return
         self.stack.setCurrentIndex(keys.index(key))
@@ -160,7 +172,8 @@ class SettingsView(QWidget):
         config = self._fresh_config()
         agents = self.orchestrator.reload_agents(config)
         self.agents_page.refresh()
-        self.agents_changed.emit()
+        if self.state is not None:
+            self.state.keys_changed()
         return list(agents)
 
     def _apply_knobs(self) -> None:
@@ -171,18 +184,20 @@ class SettingsView(QWidget):
             self.font_size_handler(size)
 
     def _add_agent(self) -> str | None:
-        if self.add_agent_handler is None:
-            return None
-        name = self.add_agent_handler()
-        if name:
-            self.agents_changed.emit()
-        return name
+        # The handler emits agentAdded itself once the orchestrator accepts it.
+        return None if self.add_agent_handler is None else self.add_agent_handler()
 
     def _remove_agent(self, name: str) -> bool:
         removed = self.orchestrator.remove_agent(name)
-        if removed:
-            self.agents_changed.emit()
+        if removed and self.state is not None:
+            self.state.agent_removed(name)
         return removed
+
+    def _set_role(self, name: str, role: str) -> str:
+        applied = self.orchestrator.set_agent_role(name, role)
+        if self.state is not None:
+            self.state.roles_changed()
+        return applied
 
     # ------------------------------------------------------------ live updates
     def set_sidecar_health(self, healthy: bool, detail: str = "") -> None:

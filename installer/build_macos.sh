@@ -11,7 +11,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 APP_NAME="CombinePro"
-VERSION="1.0.4"
+VERSION="1.0.5"
 PY="${PYTHON:-$ROOT/.venv/bin/python}"
 DIST="$ROOT/installer/dist"
 WORK="$ROOT/installer/work"

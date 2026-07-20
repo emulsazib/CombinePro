@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMenu,
+    QScrollArea,
     QSplitter,
     QTreeView,
     QVBoxLayout,
@@ -23,7 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.orchestrator import Orchestrator
-from app.ui import theme
+from app.ui import feather, theme
 from app.ui.editor_tabs import EditorTabs
 from app.ui.widgets import (
     AgentCard,
@@ -33,6 +34,10 @@ from app.ui.widgets import (
     PromptBar,
     ThoughtStream,
 )
+
+
+# How many agent cards the cluster roster shows before it starts scrolling.
+_VISIBLE_AGENT_CARDS = 3
 
 
 class WorkspaceView(QWidget):
@@ -80,6 +85,9 @@ class WorkspaceView(QWidget):
             self.tree.hideColumn(col)
         self.tree.setHeaderHidden(True)
         self.tree.setAnimated(True)
+        self.tree.setVerticalScrollMode(QTreeView.ScrollMode.ScrollPerPixel)
+        self.tree.setHorizontalScrollMode(QTreeView.ScrollMode.ScrollPerPixel)
+        self.tree.setIndentation(14)
         self.tree.clicked.connect(self._tree_clicked)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._tree_context_menu)
@@ -88,7 +96,8 @@ class WorkspaceView(QWidget):
         tv = QVBoxLayout(tree_wrap)
         tv.setContentsMargins(0, 0, 0, 0)
         tv.setSpacing(0)
-        header = QLabel("  EXPLORER")
+        header = QLabel(f'&nbsp;{feather.label_html("folder", theme.TEXT_MUTED, 14)}&nbsp;&nbsp;EXPLORER')
+        header.setTextFormat(Qt.TextFormat.RichText)
         header.setObjectName("panelHeader")
         tv.addWidget(header)
         tv.addWidget(self.tree, 1)
@@ -129,7 +138,8 @@ class WorkspaceView(QWidget):
         rv.setContentsMargins(0, 0, 0, 0)
         rv.setSpacing(0)
 
-        header = QLabel("  AGENT CLUSTER")
+        header = QLabel(f'&nbsp;{feather.label_html("cpu", theme.TEXT_MUTED, 14)}&nbsp;&nbsp;AGENT CLUSTER')
+        header.setTextFormat(Qt.TextFormat.RichText)
         header.setObjectName("panelHeader")
         rv.addWidget(header)
 
@@ -142,9 +152,30 @@ class WorkspaceView(QWidget):
             card = AgentCard(name, agent.provider, compact=True)
             self.agent_cards[name] = card
             self._cards_layout.addWidget(card)
-        rv.addWidget(cards_wrap)
+        # Trailing stretch: the scroll area resizes its widget to the viewport,
+        # and without somewhere for the slack to go a QVBoxLayout pads the cards
+        # themselves — a one-line card would inflate to match a two-line one.
+        self._cards_layout.addStretch(1)
 
-        stream_header = QLabel("  AI THOUGHT STREAM")
+        # Cap the roster at a few cards and scroll the rest: the roster grows
+        # with every agent added, and without a bound it would keep squeezing
+        # the thought stream below it.
+        self._cards_scroll = QScrollArea()
+        self._cards_scroll.setWidgetResizable(True)
+        self._cards_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._cards_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._cards_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self._cards_scroll.setWidget(cards_wrap)
+        self._cards_scroll.verticalScrollBar().setSingleStep(12)
+        rv.addWidget(self._cards_scroll)
+        self.refresh_cards_viewport()
+
+        stream_header = QLabel(f'&nbsp;{feather.label_html("message", theme.TEXT_MUTED, 14)}&nbsp;&nbsp;AI THOUGHT STREAM')
+        stream_header.setTextFormat(Qt.TextFormat.RichText)
         stream_header.setObjectName("panelHeader")
         rv.addWidget(stream_header)
         self.thought = ThoughtStream()
@@ -154,7 +185,8 @@ class WorkspaceView(QWidget):
         lv = QVBoxLayout(load_wrap)
         lv.setContentsMargins(12, 10, 12, 12)
         lv.setSpacing(8)
-        load_label = QLabel("CLUSTER LOAD")
+        load_label = QLabel(f'{feather.label_html("activity", theme.TEXT_FAINT, 12)}&nbsp;&nbsp;CLUSTER LOAD')
+        load_label.setTextFormat(Qt.TextFormat.RichText)
         load_label.setProperty("caps", True)
         lv.addWidget(load_label)
         self.cluster_load = ClusterLoadChart()
@@ -207,7 +239,41 @@ class WorkspaceView(QWidget):
             return
         card = AgentCard(name, provider, compact=True)
         self.agent_cards[name] = card
-        self._cards_layout.addWidget(card)
+        # Insert before the trailing stretch, not after it.
+        self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
+        self.refresh_cards_viewport()
+
+    def refresh_cards_viewport(self) -> None:
+        """Size the roster to at most `_VISIBLE_AGENT_CARDS`, then scroll.
+
+        Measured from the tallest card rather than a constant, so a two-line
+        description (and any font or DPI scaling) is never clipped. With fewer
+        cards than the cap the panel shrinks to fit instead of padding.
+        """
+        cards = list(self.agent_cards.values())
+        if not cards:
+            self._cards_scroll.setFixedHeight(0)
+            return
+        shown = min(len(cards), _VISIBLE_AGENT_CARDS)
+        width = max(1, self._cards_scroll.viewport().width()
+                    - self._cards_layout.contentsMargins().left()
+                    - self._cards_layout.contentsMargins().right())
+        tallest = max(
+            (c.heightForWidth(width) if c.sizePolicy().hasHeightForWidth() else 0)
+            or c.sizeHint().height()
+            for c in cards
+        )
+        margins = self._cards_layout.contentsMargins()
+        self._cards_scroll.setFixedHeight(
+            tallest * shown
+            + self._cards_layout.spacing() * (shown - 1)
+            + margins.top() + margins.bottom()
+        )
+
+    def resizeEvent(self, event) -> None:  # noqa: ANN001
+        # Card height depends on wrapped text, so it changes with panel width.
+        super().resizeEvent(event)
+        self.refresh_cards_viewport()
 
     def current_path(self) -> str | None:
         return self.editor.current_path()

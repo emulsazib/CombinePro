@@ -26,37 +26,18 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.ui import theme
+from app.agents import providers, roles
+from app.ui import feather, theme
 
-# (label, provider id, kind)
-AGENT_TYPES: tuple[tuple[str, str, str], ...] = (
-    ("Commercial — OpenAI", "openai", "commercial"),
-    ("Commercial — Anthropic (Claude)", "anthropic", "commercial"),
-    ("Commercial — Google (Gemini)", "gemini", "commercial"),
-    ("Local — Ollama", "ollama", "local"),
-    ("Local — vLLM", "vllm", "local"),
-    ("Local — Custom (OpenAI-compatible)", "custom", "local"),
+# Provider facts (labels, models, env keys, base URLs) all come from the shared
+# registry in app/agents/providers.py, so this dialog, the Configure modal, the
+# API page and the orchestrator can never disagree about them.
+AGENT_TYPES: tuple[tuple[str, str, str], ...] = tuple(
+    (p.label, p.id, p.kind) for p in providers.PROVIDERS
 )
 
-# Suggested model + starter env rows per provider.
-TYPE_DEFAULTS: dict[str, tuple[str, tuple[tuple[str, str], ...]]] = {
-    "openai": ("gpt-5.1", (("OPENAI_API_KEY", ""),)),
-    "anthropic": ("claude-opus-4-8", (("ANTHROPIC_API_KEY", ""),)),
-    "gemini": ("gemini-2.5-pro", (("GEMINI_API_KEY", ""),)),
-    "ollama": ("llama3.1", (("LOCAL_BASE_URL", "http://localhost:11434/v1"), ("LOCAL_API_KEY", "ollama"))),
-    "vllm": ("meta-llama/Llama-3.1-8B-Instruct", (("LOCAL_BASE_URL", "http://localhost:8000/v1"), ("LOCAL_API_KEY", ""))),
-    "custom": ("", (("LOCAL_BASE_URL", ""), ("LOCAL_API_KEY", ""))),
-}
-
 # The one env key each provider cannot work without.
-REQUIRED_KEY: dict[str, str] = {
-    "openai": "OPENAI_API_KEY",
-    "anthropic": "ANTHROPIC_API_KEY",
-    "gemini": "GEMINI_API_KEY",
-    "ollama": "LOCAL_BASE_URL",
-    "vllm": "LOCAL_BASE_URL",
-    "custom": "LOCAL_BASE_URL",
-}
+REQUIRED_KEY: dict[str, str] = {p.id: p.env_key for p in providers.PROVIDERS}
 
 _ENV_KEY_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 _NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
@@ -83,16 +64,22 @@ class _KVRow:
         self.value_edit.setFont(theme.mono_font(12))
         self.value_edit.editingFinished.connect(self._normalize)
 
-        self.reveal = QPushButton("◉")
+        self.reveal = QPushButton()
         self.reveal.setProperty("variant", "ghost")
         self.reveal.setFixedWidth(34)
         self.reveal.setCheckable(True)
+        self.reveal.setIcon(feather.icon("eye", theme.TEXT_MUTED, 14))
+        self.reveal.setIconSize(feather.size_hint(14))
+        self.reveal.setCursor(Qt.CursorShape.PointingHandCursor)
         self.reveal.setToolTip("Show/hide the value")
         self.reveal.toggled.connect(self._apply_echo)
 
-        self.remove = QPushButton("✕")
+        self.remove = QPushButton()
         self.remove.setProperty("variant", "ghost")
         self.remove.setFixedWidth(34)
+        self.remove.setIcon(feather.icon("x", theme.TEXT_MUTED, 14))
+        self.remove.setIconSize(feather.size_hint(14))
+        self.remove.setCursor(Qt.CursorShape.PointingHandCursor)
         self.remove.setToolTip("Remove this row")
         self.remove.clicked.connect(lambda: dialog._remove_row(self))
 
@@ -174,6 +161,16 @@ class AddAgentDialog(QDialog):
         self.model_edit = QLineEdit()
         self.model_edit.setFont(theme.mono_font(12))
         form.addWidget(self.model_edit, 2, 1)
+
+        form.addWidget(self._label("Role"), 3, 0)
+        self.role_combo = QComboBox()
+        self.role_combo.addItem("Unassigned", "")
+        for role_id, role_label in roles.ROLES:
+            self.role_combo.addItem(role_label, role_id)
+        self.role_combo.setToolTip(
+            "What this agent works on. Independent of its allocated folder."
+        )
+        form.addWidget(self.role_combo, 3, 1)
         form.setColumnStretch(1, 1)
         root.addLayout(form)
 
@@ -182,8 +179,11 @@ class AddAgentDialog(QDialog):
         env_label.setProperty("caps", True)
         env_head.addWidget(env_label)
         env_head.addStretch(1)
-        add_row = QPushButton("+ Add Row")
+        add_row = QPushButton("  Add Row")
         add_row.setProperty("variant", "ghost")
+        add_row.setIcon(feather.icon("plus", theme.TEXT_MUTED, 14))
+        add_row.setIconSize(feather.size_hint(14))
+        add_row.setCursor(Qt.CursorShape.PointingHandCursor)
         add_row.clicked.connect(lambda: self._add_row())
         env_head.addWidget(add_row)
         root.addLayout(env_head)
@@ -222,12 +222,18 @@ class AddAgentDialog(QDialog):
 
         btns = QHBoxLayout()
         btns.addStretch(1)
-        cancel = QPushButton("Cancel")
+        cancel = QPushButton("  Cancel")
         cancel.setProperty("variant", "ghost")
+        cancel.setIcon(feather.icon("x", theme.TEXT_MUTED, 15))
+        cancel.setIconSize(feather.size_hint(15))
+        cancel.setCursor(Qt.CursorShape.PointingHandCursor)
         cancel.clicked.connect(self.reject)
         btns.addWidget(cancel)
-        save = QPushButton("Save Agent")
+        save = QPushButton("  Save Agent")
         save.setProperty("variant", "primary")
+        save.setIcon(feather.icon("save", theme.ON_ACCENT, 15))
+        save.setIconSize(feather.size_hint(15))
+        save.setCursor(Qt.CursorShape.PointingHandCursor)
         save.clicked.connect(self._save)
         btns.addWidget(save)
         root.addLayout(btns)
@@ -248,10 +254,9 @@ class AddAgentDialog(QDialog):
     # ---------------------------------------------------------------- grid ops
     def _type_changed(self, _index: int) -> None:
         provider, _kind = self._current_type()
-        model, env_rows = TYPE_DEFAULTS[provider]
-        self.model_edit.setText(model)
+        self.model_edit.setText(providers.default_model(provider))
         self._clear_rows()
-        for key, value in env_rows:
+        for key, value in providers.env_rows(provider):
             self._add_row(key, value)
 
     def _add_row(self, key: str = "", value: str = "") -> None:
@@ -321,6 +326,7 @@ class AddAgentDialog(QDialog):
             "kind": kind,
             "provider": provider,
             "model": model,
+            "role": str(self.role_combo.currentData() or ""),
             "env": env,
         }
         self.accept()

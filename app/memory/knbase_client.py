@@ -44,7 +44,15 @@ class KnbaseClient:
         except RuntimeError:
             pass  # no loop (tests) — the old client is garbage-collected
 
-    async def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+    async def _request(
+        self, method: str, path: str, *, soft_fail: bool = False, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Issue one sidecar call.
+
+        `soft_fail` returns the parsed error body instead of raising. Needed for
+        /governance, whose rejection body carries `missingSections` but no
+        `error` key — raising would collapse it to a useless "HTTP 422".
+        """
         try:
             resp = await self._client.request(method, path, **kwargs)
         except httpx.HTTPError as exc:
@@ -54,6 +62,9 @@ class KnbaseClient:
         except ValueError as exc:
             raise SidecarError(f"sidecar returned non-JSON ({resp.status_code})") from exc
         if resp.status_code >= 400 or data.get("ok") is False:
+            if soft_fail:
+                data.setdefault("ok", False)
+                return data
             raise SidecarError(str(data.get("error", f"HTTP {resp.status_code}")))
         return data
 
@@ -74,6 +85,27 @@ class KnbaseClient:
         if full:
             params["full"] = "1"
         return await self._request("GET", "/context", params=params)
+
+    async def write_governance(self, key: str, content: str, summary: str) -> dict[str, Any]:
+        """Author one governance document.
+
+        Returns the response body rather than raising on rejection: a 422 means
+        `content` is missing required sections, and the caller needs that list
+        to log something actionable. Check `resp["ok"]`.
+        """
+        return await self._request(
+            "POST", f"/governance/{key}",
+            json={"content": content, "summary": summary},
+            soft_fail=True,
+        )
+
+    async def get_governance(self, key: str) -> str:
+        """Full current text of one governance document ("" when absent)."""
+        data = await self.get_context(files=[key], full=True)
+        for entry in data.get("fullContents", []):
+            if entry.get("key") == key:
+                return str(entry.get("content", ""))
+        return ""
 
     async def begin_task(self, description: str) -> dict[str, Any]:
         return await self._request("POST", "/task/begin", json={"description": description})

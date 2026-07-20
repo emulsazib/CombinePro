@@ -16,6 +16,8 @@ _MODELS = (
     ("CLAUDE_MODEL", "Claude model", "claude_model"),
     ("OPENAI_MODEL", "OpenAI model", "openai_model"),
     ("GEMINI_MODEL", "Gemini model", "gemini_model"),
+    ("KIMI_MODEL", "Kimi model", "kimi_model"),
+    ("GLM_MODEL", "GLM model", "glm_model"),
 )
 
 
@@ -76,9 +78,9 @@ class ModelsPage(SettingsPage):
             self._debounce,
         ))
 
-        revert = ghost("Revert")
+        revert = ghost("Revert", icon="refresh")
         revert.clicked.connect(self._revert)
-        save = primary("\U0001f4be  Save & Apply")
+        save = primary("Save & Apply", icon="save")
         save.clicked.connect(self._save)
         self.add_actions(revert, save)
         self.add_status_line()
@@ -96,12 +98,17 @@ class ModelsPage(SettingsPage):
         h.addWidget(control)
         return row
 
-    def _revert(self) -> None:
+    def refresh(self) -> None:
+        """Re-read every control from the live Config (after an external change,
+        e.g. a model set through the cluster Configure modal)."""
         for env_key, _label, attr in _MODELS:
             self._fields[env_key].setText(getattr(self.config, attr, ""))
         self._skeleton.setValue(self.config.skeleton_byte_cap)
         self._max_file.setValue(self.config.max_file_bytes)
         self._debounce.setValue(self.config.debounce_seconds)
+
+    def _revert(self) -> None:
+        self.refresh()
         self.report("Reverted to the loaded configuration.")
 
     def _save(self) -> None:

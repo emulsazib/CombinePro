@@ -53,8 +53,9 @@ def find_node() -> str | None:
 class SidecarProcess:
     """Starts/stops the knbase sidecar as a child process."""
 
-    def __init__(self, sidecar_url: str) -> None:
+    def __init__(self, sidecar_url: str, workspace: Path | None = None) -> None:
         self.sidecar_url = sidecar_url
+        self.workspace = workspace
         self.dir = resource_path("sidecar")
         self._proc: subprocess.Popen | None = None
         self.reason: str = ""
@@ -87,6 +88,12 @@ class SidecarProcess:
 
         env = dict(os.environ)
         env["SIDECAR_PORT"] = self._port()
+        # Pin the project root. knbase's resolveProjectRoot() otherwise walks UP
+        # for a .knbase dir and falls back to the nearest .git — so a workspace
+        # nested inside a larger repo would silently write memory-bank/ at the
+        # repo root instead of the workspace.
+        if self.workspace is not None:
+            env["KNBASE_ROOT"] = str(self.workspace)
         creation = {}
         if os.name == "nt":
             # Keep a console window from flashing up on Windows.
