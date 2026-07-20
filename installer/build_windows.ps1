@@ -13,7 +13,7 @@ $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
 $AppName = "CombinePro"
-$Version = "1.0.4"
+$Version = "1.0.5"
 $Python  = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 $Dist    = Join-Path $Root "installer\dist"
 $Work    = Join-Path $Root "installer\work"

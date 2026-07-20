@@ -10,12 +10,14 @@ import os
 from pathlib import Path
 
 from PyQt6.QtCore import QProcess, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter
+from PyQt6.QtGui import QColor, QGuiApplication, QKeySequence, QPainter, QShortcut
 from PyQt6.QtWidgets import (
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -25,7 +27,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.ui import theme
+from app.ui import feather, theme
 
 
 def dot(color: str, size: int = 10) -> str:
@@ -73,19 +75,30 @@ class SectionHeader(QLabel):
 # --------------------------------------------------------------------- nav
 
 class NavButton(QPushButton):
-    """Left-sidebar navigation entry: icon glyph + label, checkable/active."""
+    """Left-sidebar navigation entry: Feather icon + label, checkable/active.
 
-    def __init__(self, glyph: str, label: str) -> None:
+    The icon is re-tinted on state change rather than baked into the label, so
+    the active entry's glyph picks up the accent alongside its text.
+    """
+
+    def __init__(self, icon_name: str, label: str) -> None:
         # Escape '&' so Qt doesn't treat it as a mnemonic accelerator.
-        super().__init__(f"  {glyph}   {label}".replace("&", "&&"))
+        super().__init__(f"  {label}".replace("&", "&&"))
+        self._icon_name = icon_name
         self.setCheckable(True)
         self.setProperty("nav", True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setIconSize(feather.size_hint(17))
+        self._retint(False)
+
+    def _retint(self, active: bool) -> None:
+        self.setIcon(feather.icon(self._icon_name, theme.TEXT if active else theme.TEXT_FAINT, 17))
 
     def set_active(self, active: bool) -> None:
         self.setChecked(active)
         self.setProperty("active", active)
+        self._retint(active)
         self.style().unpolish(self)
         self.style().polish(self)
 
@@ -100,12 +113,12 @@ class NavSidebar(QFrame):
     view_requested = pyqtSignal(str)
 
     NAV = (
-        ("explorer", "\u25a6", "Explorer"),
-        ("agents", "\u25c8", "Agents"),
-        ("settings", "\u2699", "Settings"),
+        ("explorer", "folder", "Explorer"),
+        ("agents", "cpu", "Agents"),
+        ("settings", "settings", "Settings"),
     )
 
-    def __init__(self, version: str = "v1.0.4") -> None:
+    def __init__(self, version: str = "v1.0.5") -> None:
         super().__init__()
         self.setObjectName("navSidebar")
         self.setFixedWidth(240)
@@ -140,7 +153,7 @@ class NavSidebar(QFrame):
         self._fill_index = layout.count()
         layout.addStretch(1)
         layout.addWidget(_hline())
-        help_btn = NavButton("\u2139", "Help")
+        help_btn = NavButton("alert-circle", "Help")
         help_btn.setCheckable(False)
         layout.addWidget(help_btn)
         layout.addSpacing(8)
@@ -193,6 +206,32 @@ class StatCard(QFrame):
         self._value.setText(value)
 
 
+def wrap_label(label: QLabel) -> QLabel:
+    """Make a word-wrapped QLabel claim the height its text actually needs.
+
+    A wrapping QLabel's sizeHint is one line tall, so a QVBoxLayout allots one
+    line, and because QLabel centres vertically by default the second line
+    spills symmetrically over the widgets above and below it. Opting the size
+    policy into heightForWidth makes the layout ask for the real wrapped
+    height; top alignment means any residual clipping degrades downward
+    instead of overlapping a neighbour.
+    """
+    label.setWordWrap(True)
+    label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+    policy = label.sizePolicy()
+    policy.setVerticalPolicy(QSizePolicy.Policy.MinimumExpanding)
+    policy.setHeightForWidth(True)
+    label.setSizePolicy(policy)
+    return label
+
+
+def _propagate_height_for_width(widget: QWidget) -> None:
+    """Let a container forward its layout's heightForWidth to its parent."""
+    policy = widget.sizePolicy()
+    policy.setHeightForWidth(True)
+    widget.setSizePolicy(policy)
+
+
 class AgentCard(QFrame):
     """One agent tile. Two layouts:
 
@@ -202,7 +241,8 @@ class AgentCard(QFrame):
     """
 
     configure_clicked = pyqtSignal(str)
-    toggle_clicked = pyqtSignal(str)
+    # (agent name, requested state) — emitted by the Activate/Deactivate toggle.
+    toggle_clicked = pyqtSignal(str, bool)
 
     def __init__(
         self,
@@ -211,18 +251,25 @@ class AgentCard(QFrame):
         *,
         compact: bool = False,
         domain: str = "",
+        role: str = "",
         state: str = "IDLE",
+        enabled: bool = True,
     ) -> None:
         super().__init__()
         self.setObjectName("agentCard")
         self.name = name
         self._compact = compact
+        self._enabled = enabled
         self._color = theme.agent_color(name)
 
         if compact:
             self._build_compact(name, provider, state)
         else:
-            self._build_full(name, provider, domain, state)
+            self._build_full(name, provider, domain, role, state)
+        # The card must pass its layout's wrapped height up to the panel, or the
+        # description gets one line's worth of space no matter how long it is.
+        _propagate_height_for_width(self)
+        self.set_enabled_state(enabled)
 
     # -------------------------------------------------------------- compact
     def _build_compact(self, name: str, provider: str, state: str) -> None:
@@ -241,8 +288,7 @@ class AgentCard(QFrame):
         top.addWidget(self._badge)
         layout.addLayout(top)
 
-        self._desc = QLabel("Dormant — awaiting a task.")
-        self._desc.setWordWrap(True)
+        self._desc = wrap_label(QLabel("Dormant — awaiting a task."))
         self._desc.setProperty("muted", True)
         layout.addWidget(self._desc)
 
@@ -263,7 +309,7 @@ class AgentCard(QFrame):
         layout.addWidget(self._provider_tag)
 
     # ----------------------------------------------------------------- full
-    def _build_full(self, name: str, provider: str, domain: str, state: str) -> None:
+    def _build_full(self, name: str, provider: str, domain: str, role: str, state: str) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
@@ -290,8 +336,13 @@ class AgentCard(QFrame):
 
         tags = QHBoxLayout()
         tags.setSpacing(6)
+        self._role_tag = QLabel(role or "No role")
+        self._role_tag.setProperty("chip", True)
+        self._role_tag.setToolTip("Functional role — what this agent works on.")
+        tags.addWidget(self._role_tag)
         self._domain_tag = QLabel(domain or "Unassigned")
         self._domain_tag.setProperty("chip", True)
+        self._domain_tag.setToolTip("Allocated domain — the folder it may write to.")
         tags.addWidget(self._domain_tag)
         prov = QLabel(provider)
         prov.setProperty("muted", True)
@@ -304,14 +355,26 @@ class AgentCard(QFrame):
 
         btns = QHBoxLayout()
         btns.setSpacing(8)
-        configure = QPushButton("Configure")
-        configure.setProperty("variant", "ghost")
-        configure.clicked.connect(lambda: self.configure_clicked.emit(self.name))
-        self._toggle = QPushButton("Deactivate")
-        self._toggle.setProperty("variant", "ghost")
-        self._toggle.clicked.connect(lambda: self.toggle_clicked.emit(self.name))
-        btns.addWidget(configure)
-        btns.addWidget(self._toggle)
+        self._configure_btn = QPushButton("  Configure")
+        self._configure_btn.setProperty("variant", "ghost")
+        self._configure_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._configure_btn.setIcon(feather.icon("sliders", theme.TEXT_MUTED, 14))
+        self._configure_btn.setIconSize(feather.size_hint(14))
+        self._configure_btn.setToolTip("Change this agent's provider, model version, or role.")
+        self._configure_btn.clicked.connect(lambda: self.configure_clicked.emit(self.name))
+        btns.addWidget(self._configure_btn)
+
+        self._toggle_btn = QPushButton("  Deactivate")
+        self._toggle_btn.setProperty("variant", "ghost")
+        self._toggle_btn.setIconSize(feather.size_hint(14))
+        self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Emit the state being requested, not a bare "toggle": the orchestrator
+        # is the source of truth, so the card never guesses its own next state.
+        self._toggle_btn.clicked.connect(
+            lambda: self.toggle_clicked.emit(self.name, not self._enabled)
+        )
+        btns.addWidget(self._toggle_btn)
+        btns.addStretch(1)
         layout.addLayout(btns)
 
     def _metric_row(self, label: str, value: str, key: str) -> QWidget:
@@ -330,12 +393,45 @@ class AgentCard(QFrame):
 
     # ------------------------------------------------------------- updates
     def set_state(self, state: str, description: str | None = None) -> None:
-        self._badge.set_state(state)
-        running = state.upper() in ("ACTIVE", "RUNNING")
+        # A deactivated agent stays OFF regardless of what the orchestrator
+        # reports, so a late in-flight event can't make it look live.
+        self._badge.set_state(state if self._enabled else "OFF")
+        running = self._enabled and state.upper() in ("ACTIVE", "RUNNING")
         if self._compact:
             if description is not None:
                 self._desc.setText(description)
             self._progress.setVisible(running)
+
+    def set_enabled_state(self, enabled: bool) -> None:
+        """Reflect activate/deactivate: badge, button label, and dimming."""
+        was_enabled, self._enabled = self._enabled, bool(enabled)
+        if not self._enabled:
+            self._badge.set_state("OFF")
+        elif not was_enabled:
+            self._badge.set_state("IDLE")  # reactivated: back to a live state
+        if hasattr(self, "_toggle_btn"):
+            self._toggle_btn.setText("  Deactivate" if self._enabled else "  Activate")
+            self._toggle_btn.setIcon(feather.icon(
+                "pause" if self._enabled else "play",
+                theme.TEXT_MUTED if self._enabled else theme.ACCENT_TINT, 14,
+            ))
+            self._toggle_btn.setToolTip(
+                "Stop waking this agent; it keeps its configuration."
+                if self._enabled else "Resume waking this agent."
+            )
+        # Dim the whole card so an inactive agent reads as inactive at a glance.
+        self.setProperty("inactive", not self._enabled)
+        self.setGraphicsEffect(None)
+        if not self._enabled:
+            effect = QGraphicsOpacityEffect(self)
+            effect.setOpacity(0.55)
+            self.setGraphicsEffect(effect)
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    @property
+    def is_enabled(self) -> bool:
+        return self._enabled
 
     def set_metrics(self, latency: str | None = None, success: str | None = None) -> None:
         if not self._compact:
@@ -347,6 +443,10 @@ class AgentCard(QFrame):
     def set_domain(self, domain: str) -> None:
         if not self._compact and hasattr(self, "_domain_tag"):
             self._domain_tag.setText(domain or "Unassigned")
+
+    def set_role(self, role: str) -> None:
+        if not self._compact and hasattr(self, "_role_tag"):
+            self._role_tag.setText(role or "No role")
 
 
 # ---------------------------------------------------------------- cluster load
@@ -391,12 +491,20 @@ class ClusterLoadChart(QWidget):
 # ---------------------------------------------------------------- thought stream
 
 class ThoughtStream(QScrollArea):
-    """Chat-style feed of real AgentResults / cross-domain signals."""
+    """Chat-style feed of real AgentResults / cross-domain signals.
+
+    Entries are selectable and copyable: each label allows mouse/keyboard text
+    selection, and because a per-label selection can never span entries, the
+    widget also offers Ctrl+C and a context menu that copy the whole transcript.
+    """
+
+    _MAX_ENTRIES = 60
 
     def __init__(self) -> None:
         super().__init__()
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
+        self.verticalScrollBar().setSingleStep(12)
         self._body = QWidget()
         self._layout = QVBoxLayout(self._body)
         self._layout.setContentsMargins(12, 12, 12, 12)
@@ -404,6 +512,50 @@ class ThoughtStream(QScrollArea):
         self._layout.addStretch(1)
         self.setWidget(self._body)
 
+        # Plain-text mirror of every entry, for whole-transcript copying.
+        self._transcript: list[str] = []
+
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_menu)
+        copy_all = QShortcut(QKeySequence.StandardKey.Copy, self)
+        copy_all.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        copy_all.activated.connect(self._copy_selection_or_all)
+
+    # ------------------------------------------------------------- selection
+    @staticmethod
+    def _selectable(label: QLabel) -> QLabel:
+        label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        label.setCursor(Qt.CursorShape.IBeamCursor)
+        return label
+
+    def _copy_selection_or_all(self) -> None:
+        """Copy the focused label's selection, else the whole transcript."""
+        focused = QGuiApplication.focusObject()
+        if isinstance(focused, QLabel) and focused.hasSelectedText():
+            QGuiApplication.clipboard().setText(focused.selectedText())
+            return
+        self.copy_all()
+
+    def copy_all(self) -> None:
+        QGuiApplication.clipboard().setText("\n\n".join(self._transcript))
+
+    def _show_menu(self, pos) -> None:  # noqa: ANN001
+        menu = QMenu(self)
+        selected = menu.addAction(feather.icon("copy", theme.TEXT_MUTED, 14), "Copy selection")
+        selected.triggered.connect(self._copy_selection_or_all)
+        everything = menu.addAction(
+            feather.icon("copy", theme.TEXT_MUTED, 14), "Copy entire stream")
+        everything.triggered.connect(self.copy_all)
+        menu.addSeparator()
+        menu.addAction(
+            feather.icon("trash", theme.TEXT_MUTED, 14), "Clear"
+        ).triggered.connect(self.clear)
+        menu.exec(self.mapToGlobal(pos))
+
+    # ---------------------------------------------------------------- entries
     def add_entry(self, author: str, color: str, text: str, code: str | None = None) -> None:
         entry = QWidget()
         v = QVBoxLayout(entry)
@@ -416,6 +568,7 @@ class ThoughtStream(QScrollArea):
             f'letter-spacing:0.05em;">{html.escape(author.upper())}</span>'
         )
         head.setTextFormat(Qt.TextFormat.RichText)
+        self._selectable(head)
         v.addWidget(head)
 
         bubble = QFrame()
@@ -423,27 +576,42 @@ class ThoughtStream(QScrollArea):
         bv = QVBoxLayout(bubble)
         bv.setContentsMargins(12, 10, 12, 10)
         bv.setSpacing(8)
-        body = QLabel(text)
-        body.setWordWrap(True)
+        body = wrap_label(QLabel(text))
         body.setStyleSheet(f"color:{theme.TEXT}; background:transparent;")
+        self._selectable(body)
         bv.addWidget(body)
         if code:
-            code_lbl = QLabel(code)
-            code_lbl.setWordWrap(True)
+            code_lbl = wrap_label(QLabel(code))
             code_lbl.setFont(theme.mono_font(12))
             code_lbl.setStyleSheet(
                 f"color:{theme.ACCENT_TINT}; background:{theme.BG_LOWEST}; "
                 f"border:1px solid {theme.BORDER}; padding:8px;"
             )
+            self._selectable(code_lbl)
             bv.addWidget(code_lbl)
         v.addWidget(bubble)
 
         self._layout.insertWidget(self._layout.count() - 1, entry)
+        self._transcript.append(
+            f"{author.upper()}\n{text}" + (f"\n{code}" if code else "")
+        )
+        self._trim()
         # Autoscroll to newest.
         bar = self.verticalScrollBar()
         bar.setValue(bar.maximum())
 
+    def _trim(self) -> None:
+        """Bound the stream; it would otherwise grow for the whole session."""
+        while self._layout.count() - 1 > self._MAX_ENTRIES:
+            item = self._layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.setParent(None)
+                w.deleteLater()
+        del self._transcript[: max(0, len(self._transcript) - self._MAX_ENTRIES)]
+
     def clear(self) -> None:
+        self._transcript.clear()
         while self._layout.count() > 1:
             item = self._layout.takeAt(0)
             w = item.widget()
@@ -656,7 +824,7 @@ class LogTerminal(QWidget):
         proc.errorOccurred.connect(self._error)
         self._proc = proc
         self._input.setPlaceholderText("Process running — Enter sends to stdin; Stop terminates.")
-        self._prompt.setText("stdin ▸")
+        self._prompt.setText("stdin ›")
         shell = os.environ.get("SHELL", "/bin/bash")
         proc.start(shell, ["-c", cmd])
         self.process_started.emit(cmd)
@@ -721,8 +889,9 @@ class PromptBar(QFrame):
         h.setContentsMargins(12, 10, 12, 10)
         h.setSpacing(10)
 
-        icon = QLabel("\u26a1")
-        icon.setStyleSheet(f"color:{theme.ACCENT_TINT}; font-size:15px; background:transparent;")
+        icon = QLabel()
+        icon.setPixmap(feather.pixmap("zap", theme.ACCENT_TINT, 16))
+        icon.setStyleSheet("background:transparent;")
         h.addWidget(icon)
 
         self._input = QLineEdit()
@@ -735,8 +904,11 @@ class PromptBar(QFrame):
         hint.setProperty("chip", True)
         h.addWidget(hint)
 
-        self._send = QPushButton("\u27a4")
+        self._send = QPushButton()
         self._send.setProperty("variant", "primary")
+        self._send.setIcon(feather.icon("send", theme.ON_ACCENT, 15))
+        self._send.setIconSize(feather.size_hint(15))
+        self._send.setToolTip("Send the prompt to the agents (Enter)")
         self._send.setFixedWidth(44)
         self._send.setCursor(Qt.CursorShape.PointingHandCursor)
         self._send.clicked.connect(self._submit)

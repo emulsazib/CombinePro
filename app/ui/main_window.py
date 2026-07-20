@@ -23,7 +23,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.config import Config
+from app.config import AGENT_NAMES, Config
+from app.core.app_state import AppState
 from app.core.events import (
     AgentResult,
     AgentStateChanged,
@@ -32,11 +33,13 @@ from app.core.events import (
     Event,
     FileDelta,
     MemoryWritten,
+    PlanReady,
     SidecarStatus,
     TaskRequest,
 )
+from app.agents import providers, roles
 from app.core.orchestrator import Orchestrator
-from app.ui import theme
+from app.ui import feather, theme
 from app.ui.activity_dock import _event_color, describe
 from app.ui.log_bridge import QtLogBridge
 from app.ui.views import ClusterView, SettingsView, WorkspaceView
@@ -48,6 +51,10 @@ log = logging.getLogger(__name__)
 # dormant/awake (orchestrator) → live badge state (design).
 _STATE_MAP = {"dormant": "IDLE", "awake": "ACTIVE"}
 _VIEWS = ("explorer", "agents", "settings")
+# A live agent reports its provider badge; map it back to a registry id so the
+# Configure modal preselects the right entry for built-ins (which have no
+# profile dict to read a provider from).
+_PROVIDER_FOR_BADGE = {p.id: p.id for p in providers.PROVIDERS} | {"local": "custom"}
 
 
 class MainWindow(QMainWindow):
@@ -66,14 +73,21 @@ class MainWindow(QMainWindow):
 
         self._build_topbar()
 
+        # Configuration-change hub. Every mutation of the roster emits here, and
+        # every view that renders roster state subscribes — so adding or
+        # reconfiguring an agent anywhere updates all tabs without a refresh.
+        self.state = AppState(self)
+
         self.stats = SessionStats()
         self.stack = QStackedWidget()
         self.workspace_view = WorkspaceView(workspace, orchestrator)
-        self.cluster_view = ClusterView(orchestrator)
-        self.settings_view = SettingsView(config, orchestrator, workspace, self.stats)
+        self.cluster_view = ClusterView(orchestrator, self.state)
+        self.settings_view = SettingsView(config, orchestrator, workspace, self.stats, self.state)
         self.settings_view.add_agent_handler = self._add_agent_via_dialog
         self.settings_view.font_size_handler = self._apply_editor_font
-        self.settings_view.agents_changed.connect(self._sync_agent_widgets)
+        self.cluster_view.configure_agent_requested.connect(self._configure_agent)
+        self.cluster_view.toggle_agent_requested.connect(self._toggle_agent)
+        self.state.rosterChanged.connect(self._sync_agent_widgets)
         for view in (self.workspace_view, self.cluster_view, self.settings_view):
             self.stack.addWidget(view)
             view.view_requested.connect(self._switch_view)
@@ -111,8 +125,13 @@ class MainWindow(QMainWindow):
         bar.setMovable(False)
         bar.setFloatable(False)
 
-        self._hamburger = QPushButton("\u2630")
+        self._hamburger = QPushButton()
         self._hamburger.setProperty("variant", "ghost")
+        self._hamburger.setProperty("iconOnly", True)
+        self._hamburger.setIcon(feather.icon("menu", theme.TEXT_MUTED, 17))
+        self._hamburger.setIconSize(feather.size_hint(17))
+        self._hamburger.setToolTip("Show or hide the navigation rail")
+        self._hamburger.setCursor(Qt.CursorShape.PointingHandCursor)
         self._hamburger.setFixedWidth(38)
         self._hamburger.clicked.connect(self._toggle_nav)
         self._hamburger_action = bar.addWidget(self._hamburger)
@@ -123,27 +142,41 @@ class MainWindow(QMainWindow):
         bar.addWidget(logo)
 
         self._nav_tabs: dict[str, QPushButton] = {}
+        self._nav_tab_icons: dict[str, str] = {}
         self._nav_tab_actions = []
-        for key, label in (("explorer", "Explorer"), ("agents", "Agents"), ("settings", "Settings")):
-            tab = QPushButton(label)
+        for key, label, glyph in (
+            ("explorer", "Explorer", "folder"),
+            ("agents", "Agents", "cpu"),
+            ("settings", "Settings", "settings"),
+        ):
+            tab = QPushButton(f"  {label}")
             tab.setProperty("navtab", True)
+            tab.setIcon(feather.icon(glyph, theme.TEXT_MUTED, 15))
+            tab.setIconSize(feather.size_hint(15))
             tab.setCursor(Qt.CursorShape.PointingHandCursor)
             tab.clicked.connect(lambda _=False, k=key: self._switch_view(k))
             self._nav_tab_actions.append(bar.addWidget(tab))
             self._nav_tabs[key] = tab
+            self._nav_tab_icons[key] = glyph
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         bar.addWidget(spacer)
 
-        self._cluster_toggle = QPushButton("Cluster")
+        self._cluster_toggle = QPushButton("  Cluster")
         self._cluster_toggle.setProperty("variant", "ghost")
+        self._cluster_toggle.setIcon(feather.icon("sidebar", theme.TEXT_MUTED, 15))
+        self._cluster_toggle.setIconSize(feather.size_hint(15))
+        self._cluster_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._cluster_toggle.setToolTip("Show or hide the agent cluster panel")
         self._cluster_toggle.clicked.connect(self._toggle_cluster)
         self._cluster_toggle_action = bar.addWidget(self._cluster_toggle)
         self._cluster_toggle_action.setVisible(False)
 
-        self._run_btn = QPushButton("\u25b6  Run")
+        self._run_btn = QPushButton("  Run")
         self._run_btn.setProperty("variant", "primary")
+        self._run_btn.setIconSize(feather.size_hint(15))
+        self._run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._run_btn.setToolTip("Run the open file and show output in the System Terminal.")
         self._run_btn.clicked.connect(self._on_run)
         bar.addWidget(self._run_btn)
@@ -151,13 +184,18 @@ class MainWindow(QMainWindow):
         # button or typed command) flips the button to a red Stop.
         self._set_run_state(running=False)
 
-        sync = QPushButton("\u21bb  Sync")
+        sync = QPushButton("  Sync")
         sync.setProperty("variant", "ghost")
+        sync.setIcon(feather.icon("refresh", theme.TEXT_MUTED, 15))
+        sync.setIconSize(feather.size_hint(15))
+        sync.setCursor(Qt.CursorShape.PointingHandCursor)
+        sync.setToolTip("Re-scan the workspace file tree")
         sync.clicked.connect(self._sync_workspace)
         bar.addWidget(sync)
 
-        avatar = QLabel(" \u25cf ")
-        avatar.setStyleSheet(f"color:{theme.ACCENT_TINT}; font-size:16px;")
+        avatar = QLabel()
+        avatar.setPixmap(feather.pixmap("user", theme.ACCENT_TINT, 17))
+        avatar.setContentsMargins(8, 0, 4, 0)
         bar.addWidget(avatar)
 
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, bar)
@@ -185,7 +223,7 @@ class MainWindow(QMainWindow):
         latency.setToolTip("Representative value.")
         sb.addPermanentWidget(latency)
 
-        sb.addPermanentWidget(QLabel("v1.0.4"))
+        sb.addPermanentWidget(QLabel("v1.0.5"))
 
     # ----------------------------------------------------------------- helpers
     @staticmethod
@@ -206,7 +244,13 @@ class MainWindow(QMainWindow):
             return
         self.stack.setCurrentIndex(_VIEWS.index(key))
         for k, tab in self._nav_tabs.items():
-            tab.setProperty("active", k == key)
+            active = k == key
+            tab.setProperty("active", active)
+            # Re-tint alongside the text so the glyph doesn't stay muted on the
+            # selected tab.
+            tab.setIcon(feather.icon(
+                self._nav_tab_icons[k], theme.TEXT if active else theme.TEXT_FAINT, 15
+            ))
             tab.style().unpolish(tab)
             tab.style().polish(tab)
         self.workspace_view.nav.set_active(key)
@@ -235,14 +279,16 @@ class MainWindow(QMainWindow):
         self.workspace_view.terminal.append_line(f"saved {path}", theme.OK)
 
     def _set_run_state(self, running: bool) -> None:
-        """Flip the top-bar button between '▶ Run' (green) and '■ Stop' (red)."""
+        """Flip the top-bar button between a green Run and a red Stop."""
         if running:
-            self._run_btn.setText("■  Stop")
+            self._run_btn.setText("  Stop")
             self._run_btn.setProperty("variant", "danger")
+            self._run_btn.setIcon(feather.icon("square", theme.ERR, 15))
             self._run_btn.setToolTip("Terminate the running process (SIGTERM, then SIGKILL).")
         else:
-            self._run_btn.setText("▶  Run")
+            self._run_btn.setText("  Run")
             self._run_btn.setProperty("variant", "primary")
+            self._run_btn.setIcon(feather.icon("play", theme.ON_ACCENT, 15))
             self._run_btn.setToolTip("Run the open file and show output in the System Terminal.")
         self._run_btn.style().unpolish(self._run_btn)
         self._run_btn.style().polish(self._run_btn)
@@ -309,7 +355,7 @@ class MainWindow(QMainWindow):
         theme.ensure_agent_color(profile["name"])
         agent = self.orchestrator.add_agent(profile)
 
-        self._sync_agent_widgets()
+        self.state.agent_added(agent.name)
         self.cluster_view.add_activity(
             "REGISTERED", theme.OK,
             f"{agent.name} added ({profile['kind']} · {profile['provider']} · {profile['model']})",
@@ -320,6 +366,84 @@ class MainWindow(QMainWindow):
         )
         return agent.name
 
+    def _toggle_agent(self, name: str, enabled: bool) -> None:
+        """Cluster card toggle → activate/deactivate the agent."""
+        if name not in self.orchestrator.agents:
+            return
+        applied = self.orchestrator.set_agent_enabled(name, enabled)
+        # A deactivated agent can't be mid-flight from the UI's point of view.
+        if not applied:
+            self._awake.discard(name)
+        self.state.agent_updated(name)
+        word = "activated" if applied else "deactivated"
+        self.cluster_view.add_activity(
+            "ACTIVATED" if applied else "DEACTIVATED",
+            theme.OK if applied else theme.WARN,
+            f"{name} {word}",
+        )
+        self.workspace_view.terminal.append_line(
+            f"agent '{name}' {word}"
+            + ("" if applied else " — it will not be woken by prompts or file changes"),
+            theme.OK if applied else theme.WARN,
+        )
+
+    def _configure_agent(self, name: str) -> None:
+        """Cluster card 'Configure' → per-agent settings modal."""
+        from app.ui.agent_config_dialog import AgentConfigDialog
+
+        agent = self.orchestrator.agents.get(name)
+        if agent is None:
+            return
+        built_in = name in AGENT_NAMES
+        profile = self.orchestrator.profile_for(name)
+
+        dlg = AgentConfigDialog(
+            name,
+            provider=profile.get("provider", "") or _PROVIDER_FOR_BADGE.get(agent.provider, ""),
+            model=agent.model,
+            role=agent.role,
+            existing=set(self.orchestrator.agents),
+            # Built-ins are created from Config by build_agents(); renaming one
+            # would just be recreated under its old name on the next reload.
+            locked_name=built_in,
+            parent=self,
+        )
+        if not dlg.exec():
+            return
+        changes = dlg.result()
+        try:
+            applied = self.orchestrator.reconfigure_agent(changes)
+        except ValueError as exc:
+            self.workspace_view.terminal.append_line(f"configure failed: {exc}", theme.ERR)
+            return
+
+        final_name = applied["name"]
+        theme.ensure_agent_color(final_name)
+        self.state.agent_updated(final_name)
+        if applied.get("role_changed"):
+            self.state.roles_changed()
+        if applied.get("keys_changed"):
+            self.state.keys_changed()
+
+        detail = " · ".join(
+            f"{k} {v}" for k, v in (
+                ("provider", applied["provider"]), ("model", applied["model"]),
+                ("role", roles.label(applied["role"]) if applied["role"] else "unassigned"),
+            )
+        )
+        self.cluster_view.add_activity("CONFIGURED", theme.SECONDARY, f"{final_name}: {detail}")
+        self.workspace_view.terminal.append_line(
+            f"agent '{final_name}' reconfigured ({detail})", theme.OK
+        )
+        if applied.get("needs_key"):
+            # It saved, but has no credential — say so instead of leaving the
+            # user to wonder why the agent never wakes.
+            self.workspace_view.terminal.append_line(
+                f"agent '{final_name}' has no {applied['needs_key']} — running as a stub. "
+                f"Add the key in Settings → API Configuration.",
+                theme.WARN,
+            )
+
     def _sync_agent_widgets(self) -> None:
         """Reconcile the cluster/workspace agent cards with the live roster."""
         live = self.orchestrator.agents
@@ -327,11 +451,19 @@ class MainWindow(QMainWindow):
             theme.ensure_agent_color(name)
             self.cluster_view.add_agent_card(name, agent.provider)
             self.workspace_view.add_agent_card(name, agent.provider)
-            desc = ("Dormant — set the provider key in Settings to enable."
-                    if agent.provider == "stub" else "Dormant — awaiting a task.")
+            if not agent.enabled:
+                desc = "Deactivated — not being woken."
+            elif agent.provider == "stub":
+                desc = "Dormant — set the provider key in Settings to enable."
+            else:
+                desc = "Dormant — awaiting a task."
             state = "ACTIVE" if name in self._awake else "IDLE"
-            self.workspace_view.agent_cards[name].set_state(state, desc)
-            self.cluster_view.agent_cards[name].set_state(state)
+            compact = self.workspace_view.agent_cards[name]
+            compact.set_enabled_state(agent.enabled)
+            compact.set_state(state, desc)
+            full = self.cluster_view.agent_cards[name]
+            full.set_enabled_state(agent.enabled)
+            full.set_state(state)
         for view in (self.cluster_view, self.workspace_view):
             for stale in [n for n in view.agent_cards if n not in live]:
                 card = view.agent_cards.pop(stale)
@@ -340,6 +472,8 @@ class MainWindow(QMainWindow):
         self._awake &= set(live)
         self.cluster_view.set_active_count(len(self._awake))
         self.cluster_view.refresh_domains()
+        # Cards were added/removed above; re-cap the scrolling roster.
+        self.workspace_view.refresh_cards_viewport()
         self._agents_label.setText(f"{len(live)} agents")
 
     def _apply_editor_font(self, size: int) -> None:
@@ -446,6 +580,12 @@ class MainWindow(QMainWindow):
                     latency="—" if not event.ok else "180ms",
                     success="99.2%" if event.ok else "err",
                 )
+
+        elif isinstance(event, PlanReady):
+            self.workspace_view.thought.add_entry(
+                f"{event.agent_name} · plan", theme.TEAL,
+                "Plan ready — handing off to the acting agents.", event.plan,
+            )
 
         elif isinstance(event, CrossDomainSignal):
             self.workspace_view.thought.add_entry(

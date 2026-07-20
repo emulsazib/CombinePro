@@ -3,7 +3,7 @@
 ; (build_windows.ps1 runs PyInstaller first, then invokes this.)
 
 #define AppName "CombinePro"
-#define AppVersion "1.0.4"
+#define AppVersion "1.0.5"
 #define AppPublisher "CombinePro"
 #define AppExeName "CombinePro.exe"
 

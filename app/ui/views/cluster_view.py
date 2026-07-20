@@ -14,8 +14,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.agents import roles
 from app.core.orchestrator import Orchestrator
-from app.ui import theme
+from app.ui import feather, theme
 from app.ui.flow_layout import FlowLayout
 from app.ui.widgets import AgentCard, NavSidebar, StatCard
 
@@ -25,10 +26,17 @@ _MAX_ACTIVITY = 40
 class ClusterView(QWidget):
     view_requested = pyqtSignal(str)
     add_agent_requested = pyqtSignal()
+    configure_agent_requested = pyqtSignal(str)
+    toggle_agent_requested = pyqtSignal(str, bool)
 
-    def __init__(self, orchestrator: Orchestrator) -> None:
+    def __init__(self, orchestrator: Orchestrator, state=None) -> None:  # noqa: ANN001
         super().__init__()
         self.orchestrator = orchestrator
+        self.state = state
+        if state is not None:
+            # Roles and domains are rendered on the cards, so any roster or role
+            # change has to repaint them.
+            state.rosterChanged.connect(self.refresh_domains)
 
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -41,6 +49,8 @@ class ClusterView(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # Per-pixel wheel steps; the default jumps a whole "line" per notch.
+        scroll.verticalScrollBar().setSingleStep(12)
         root.addWidget(scroll, 1)
 
         body = QWidget()
@@ -91,13 +101,19 @@ class ClusterView(QWidget):
     def _build_toolbar(self) -> None:
         row = QHBoxLayout()
         row.setSpacing(8)
-        for label in ("\u2261 Filter", "\u21c5 Sort"):
+        for label, glyph in (("  Filter", "filter"), ("  Sort", "sort")):
             btn = QPushButton(label)
             btn.setProperty("variant", "ghost")
+            btn.setIcon(feather.icon(glyph, theme.TEXT_MUTED, 14))
+            btn.setIconSize(feather.size_hint(14))
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
             row.addWidget(btn)
         row.addStretch(1)
-        add = QPushButton("\u2295  Add New Agent")
+        add = QPushButton("  Add New Agent")
         add.setProperty("variant", "primary")
+        add.setIcon(feather.icon("plus", theme.ON_ACCENT, 15))
+        add.setIconSize(feather.size_hint(15))
+        add.setCursor(Qt.CursorShape.PointingHandCursor)
         add.setToolTip("Configure and register a commercial or local LLM agent.")
         add.clicked.connect(self.add_agent_requested)
         row.addWidget(add)
@@ -109,12 +125,20 @@ class ClusterView(QWidget):
         self._grid = FlowLayout(grid_wrap, spacing=16)
         self.agent_cards: dict[str, AgentCard] = {}
         for name, agent in self.orchestrator.agents.items():
-            owner = self._domain_for(name)
-            card = AgentCard(name, agent.provider, compact=False, domain=owner)
-            card.configure_clicked.connect(lambda n: self.view_requested.emit("settings"))
-            self.agent_cards[name] = card
-            self._grid.addWidget(card)
+            self._add_card(name, agent.provider)
         self._body.addWidget(grid_wrap)
+
+    def _add_card(self, name: str, provider: str) -> AgentCard:
+        card = AgentCard(
+            name, provider, compact=False,
+            domain=self._domain_for(name), role=self._role_for(name),
+            enabled=self.orchestrator.is_agent_enabled(name),
+        )
+        card.configure_clicked.connect(self.configure_agent_requested)
+        card.toggle_clicked.connect(self.toggle_agent_requested)
+        self.agent_cards[name] = card
+        self._grid.addWidget(card)
+        return card
 
     def _domain_for(self, name: str) -> str:
         for folder, agent in self.orchestrator.domain_map.assignments().items():
@@ -122,9 +146,14 @@ class ClusterView(QWidget):
                 return folder or "workspace root"
         return "Unassigned"
 
+    def _role_for(self, name: str) -> str:
+        agent = self.orchestrator.agents.get(name)
+        return roles.label(agent.role) if agent and agent.role else ""
+
     # --------------------------------------------------------------- activity
     def _build_activity(self) -> None:
-        header = QLabel("\u21bb  Recent Activity")
+        header = QLabel(f'{feather.label_html("activity", theme.TEXT_MUTED, 15)}&nbsp;&nbsp;Recent Activity')
+        header.setTextFormat(Qt.TextFormat.RichText)
         header.setObjectName("h2")
         self._body.addWidget(header)
 
@@ -184,16 +213,20 @@ class ClusterView(QWidget):
         """Append a card for a newly registered (user-added) agent."""
         if name in self.agent_cards:
             return
-        card = AgentCard(name, provider, compact=False, domain=self._domain_for(name))
-        card.configure_clicked.connect(lambda n: self.view_requested.emit("settings"))
-        self.agent_cards[name] = card
-        self._grid.addWidget(card)
+        self._add_card(name, provider)
 
     # ----------------------------------------------------------------- update
     def set_active_count(self, active: int) -> None:
-        total = len(self.orchestrator.agents)
-        self.stat_active.set_value(f"{active:02d} /{total:02d}")
+        # Denominator is the agents eligible to run, not the whole roster —
+        # "01 /05" would be misleading when three of the five are deactivated.
+        self.stat_active.set_value(f"{active:02d} /{self.active_count():02d}")
 
     def refresh_domains(self) -> None:
         for name, card in self.agent_cards.items():
             card.set_domain(self._domain_for(name))
+            card.set_role(self._role_for(name))
+            card.set_enabled_state(self.orchestrator.is_agent_enabled(name))
+
+    def active_count(self) -> int:
+        """Agents that are activated (the denominator the stat card shows)."""
+        return sum(1 for n in self.agent_cards if self.orchestrator.is_agent_enabled(n))

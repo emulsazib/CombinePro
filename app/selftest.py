@@ -73,6 +73,34 @@ def run() -> int:
     except Exception as exc:
         check("AST skeleton builder runs", False, f"{type(exc).__name__}: {exc}")
 
+    # Governance templates must satisfy BOTH knbase gates. A doc that has every
+    # required H2 but no plain prose still counts as unauthored, which would
+    # leave the session in NEEDS_BOOTSTRAP and re-bootstrap on every start.
+    try:
+        from app.memory import governance
+
+        bad: list[str] = []
+        for key in governance.GOVERNANCE_KEYS:
+            doc = governance.render_bootstrap(key, project="selftest")
+            missing = governance.validate_sections(key, doc)
+            if missing or governance.is_placeholder(doc):
+                bad.append(f"{key}(missing={missing}, placeholder={governance.is_placeholder(doc)})")
+        check("governance bootstrap templates valid", not bad,
+              "; ".join(bad) or f"{len(governance.GOVERNANCE_KEYS)} docs")
+
+        # A spliced memory.md must keep validating, or complete_task starts failing.
+        doc = governance.render_bootstrap("memory")
+        for i in range(60):
+            doc = governance.record_change(doc, f"entry {i}")
+        entries = governance.section_entries(doc, "Recent Changes")
+        check("memory.md splice keeps doc valid",
+              not governance.validate_sections("memory", doc)
+              and len(entries) == governance.MAX_SECTION_ENTRIES
+              and "entry 59" in entries[0],
+              f"{len(entries)} entries retained, newest first")
+    except Exception as exc:
+        check("governance helpers", False, f"{type(exc).__name__}: {exc}")
+
     # Provider SDKs must import (they are only constructed when keys exist).
     for mod in ("anthropic", "openai", "google.genai", "httpx", "watchdog", "qasync"):
         try:
@@ -90,6 +118,27 @@ def run() -> int:
         check("Qt + theme", len(build_stylesheet()) > 1000)
     except Exception as exc:
         check("Qt + theme", False, str(exc))
+
+    # Feather icons need QtSvg. Without it every icon silently renders blank, so
+    # rasterise one and assert it actually produced pixels.
+    try:
+        from PyQt6.QtWidgets import QApplication
+
+        from app.ui import feather
+
+        owned = QApplication.instance() is None
+        app = QApplication([]) if owned else QApplication.instance()
+        blank = [n for n in feather.ICONS if feather.pixmap(n, "#00e38a", 16).isNull()]
+        drawn = feather.pixmap("cpu", "#00e38a", 16).toImage()
+        opaque = any(
+            drawn.pixelColor(x, y).alpha() > 0
+            for y in range(drawn.height())
+            for x in range(drawn.width())
+        )
+        check("feather icons render", not blank and opaque,
+              f"{len(feather.ICONS)} icons" if not blank else f"blank: {blank[:5]}")
+    except Exception as exc:
+        check("feather icons render", False, f"{type(exc).__name__}: {exc}")
 
     print("CombinePro bundle self-test")
     failed = 0

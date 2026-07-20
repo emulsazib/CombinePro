@@ -66,7 +66,7 @@ class UsagePage(SettingsPage):
         self._env.setSpacing(0)
         self._env_card.addWidget(self._env_host)
 
-        refresh = ghost("↻  Refresh")
+        refresh = ghost("Refresh", icon="refresh")
         refresh.clicked.connect(self.refresh)
         self.add_actions(refresh)
         self.finish()
