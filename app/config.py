@@ -14,7 +14,7 @@ from app.paths import REPO_ROOT, env_path
 ENV_PATH = env_path()
 load_dotenv(ENV_PATH)
 
-AGENT_NAMES = ("claude", "openai", "gemini")
+AGENT_NAMES = ("claude", "openai", "gemini", "kimi", "glm")
 
 
 def _env_int(name: str, default: int) -> int:
@@ -73,10 +73,14 @@ class Config:
     anthropic_api_key: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_API_KEY", ""))
     openai_api_key: str = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""))
     gemini_api_key: str = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY", ""))
+    kimi_api_key: str = field(default_factory=lambda: os.environ.get("KIMI_API_KEY", ""))
+    glm_api_key: str = field(default_factory=lambda: os.environ.get("GLM_API_KEY", ""))
 
     claude_model: str = field(default_factory=lambda: os.environ.get("CLAUDE_MODEL", "claude-opus-4-8"))
     openai_model: str = field(default_factory=lambda: os.environ.get("OPENAI_MODEL", "gpt-5.1"))
     gemini_model: str = field(default_factory=lambda: os.environ.get("GEMINI_MODEL", "gemini-2.5-pro"))
+    kimi_model: str = field(default_factory=lambda: os.environ.get("KIMI_MODEL", "kimi-k2-0905-preview"))
+    glm_model: str = field(default_factory=lambda: os.environ.get("GLM_MODEL", "glm-4.6"))
 
     sidecar_url: str = field(default_factory=lambda: os.environ.get("SIDECAR_URL", "http://127.0.0.1:8787"))
     workspace: str = field(default_factory=lambda: os.environ.get("COMBINEPRO_WORKSPACE", ""))

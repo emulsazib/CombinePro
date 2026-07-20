@@ -15,10 +15,24 @@ from app.agents.base import RESULT_SCHEMA, AgentError, BaseAgent
 class OpenAIAgent(BaseAgent):
     provider = "openai"
 
-    def __init__(self, name: str, model: str, api_key: str, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        model: str,
+        api_key: str,
+        base_url: str | None = None,
+        provider: str | None = None,
+    ) -> None:
         super().__init__(name, model)
         self._client = openai.AsyncOpenAI(api_key=api_key, base_url=base_url)
-        if base_url:
+        # Two independent things, deliberately not conflated: any non-OpenAI
+        # endpoint may reject strict json_schema and needs the plain retry, but
+        # only an unnamed one should be *labelled* "local" in the UI. Kimi and
+        # GLM need the retry while keeping their own provider badge.
+        self._schema_fallback = bool(base_url)
+        if provider:
+            self.provider = provider
+        elif base_url:
             self.provider = "local"
 
     async def _complete(self, system_static: str, system_skeleton: str, user: str) -> str:
@@ -37,9 +51,9 @@ class OpenAIAgent(BaseAgent):
                     model=self.model, messages=messages, response_format=response_format
                 )
             except openai.BadRequestError:
-                if self.provider != "local":
+                if not self._schema_fallback:
                     raise
-                # Local endpoint doesn't support structured outputs — plain retry.
+                # Endpoint doesn't support structured outputs — plain retry.
                 resp = await self._client.chat.completions.create(
                     model=self.model, messages=messages
                 )
