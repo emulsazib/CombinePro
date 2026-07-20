@@ -117,6 +117,15 @@ GUTTER_FG = TEXT_FAINT
 # the leading byte — a faint overlay for the caret's line.
 CURRENT_LINE = "#14ffffff"
 
+# --------------------------------------------------------------------- shape
+# DESIGN.md specifies a strictly sharp (0px) shape language. These tokens soften
+# it to the subtle radii modern IDEs use (VS Code, Zed, JetBrains) without
+# losing the technical, high-density feel. Set all three to "0px" to restore the
+# original sharp look — every rounded surface reads from here.
+RADIUS = "6px"        # cards, panels, dialogs, menus
+RADIUS_SM = "4px"     # buttons, inputs, chips, list rows
+RADIUS_PILL = "999px"  # scrollbar handles, status pills
+
 # --------------------------------------------------------------------- fonts
 # Inter / JetBrains Mono if installed, else graceful platform fallbacks. No
 # download — apply_theme only registers bundled font files if they ever exist.
@@ -182,14 +191,18 @@ def build_stylesheet() -> str:
         background: {BG_CONTAINER};
         color: {TEXT};
         border: 1px solid {BORDER};
-        border-radius: 0px;
-        padding: 4px 12px;
+        border-radius: {RADIUS_SM};
+        padding: 5px 12px;
         font-size: 13px;
         font-weight: 600;
     }}
     QPushButton:hover {{ background: {BG_HIGH}; border-color: {BORDER_STRONG}; }}
     QPushButton:pressed {{ background: {BG_SURFACE}; }}
     QPushButton:disabled {{ color: {TEXT_FAINT}; border-color: {BORDER}; background: {BG_SURFACE}; }}
+    /* Keyboard focus stays visible even though `outline: none` is global. */
+    QPushButton:focus {{ border-color: {SECONDARY}; }}
+    /* Toolbar buttons carry an icon only, so give them a square tap target. */
+    QPushButton[iconOnly="true"] {{ padding: 6px; min-width: 30px; }}
 
     /* primary (terminal green, black text) */
     QPushButton[variant="primary"] {{
@@ -252,7 +265,12 @@ def build_stylesheet() -> str:
     QFrame#statCard, QFrame#agentCard, QFrame#panelCard {{
         background: {BG_CONTAINER};
         border: 1px solid {BORDER};
-        border-radius: 0px;
+        border-radius: {RADIUS};
+    }}
+    /* Deactivated agents read as inactive even before the opacity effect. */
+    QFrame#agentCard[inactive="true"] {{
+        background: {BG_SURFACE};
+        border: 1px solid {BORDER};
     }}
     QFrame#statCard QLabel, QFrame#agentCard QLabel, QFrame#panelCard QLabel {{ background: transparent; }}
     QLabel#statValue {{ color: {TEXT}; font-size: 22px; font-weight: 700; }}
@@ -286,7 +304,7 @@ def build_stylesheet() -> str:
         show-decoration-selected: 1;
         alternate-background-color: {BG_SURFACE};
     }}
-    QTreeView::item {{ padding: 3px 4px; border: none; border-radius: 0px; color: {TEXT_MUTED}; }}
+    QTreeView::item {{ padding: 4px 6px; border: none; border-radius: {RADIUS_SM}; color: {TEXT_MUTED}; }}
     QTreeView::item:hover {{ background: {BG_HIGH}; color: {TEXT}; }}
     QTreeView::item:selected {{
         background: {SECONDARY_SOFT};
@@ -298,11 +316,11 @@ def build_stylesheet() -> str:
     QTreeWidget {{
         background-color: {BG_CONTAINER};
         border: 1px solid {BORDER};
-        border-radius: 0px;
+        border-radius: {RADIUS};
         alternate-background-color: {BG_SURFACE};
         padding: 0px;
     }}
-    QTreeWidget::item {{ padding: 5px 6px; border-radius: 0px; }}
+    QTreeWidget::item {{ padding: 6px 8px; border-radius: {RADIUS_SM}; }}
     QTreeWidget::item:selected {{ background: {SECONDARY_SOFT}; color: {TEXT}; }}
     QHeaderView::section {{
         background: {BG_SURFACE};
@@ -367,8 +385,8 @@ def build_stylesheet() -> str:
         background: {BG_LOWEST};
         color: {TEXT};
         border: 1px solid {BORDER};
-        border-radius: 0px;
-        padding: 6px 10px;
+        border-radius: {RADIUS_SM};
+        padding: 7px 10px;
         font-family: {MONO_FONT_STACK};
         selection-background-color: {SECONDARY_CONTAINER};
     }}
@@ -379,9 +397,9 @@ def build_stylesheet() -> str:
         background: {BG_CONTAINER};
         color: {TEXT};
         border: 1px solid {BORDER};
-        border-radius: 0px;
-        padding: 5px 10px;
-        min-height: 16px;
+        border-radius: {RADIUS_SM};
+        padding: 6px 10px;
+        min-height: 18px;
     }}
     QComboBox:hover {{ border-color: {BORDER_STRONG}; }}
     QComboBox:focus {{ border-color: {SECONDARY}; }}
@@ -390,7 +408,7 @@ def build_stylesheet() -> str:
         background: {BG_CONTAINER};
         color: {TEXT};
         border: 1px solid {BORDER};
-        border-radius: 0px;
+        border-radius: {RADIUS};
         selection-background-color: {SECONDARY_SOFT};
         outline: none;
         padding: 2px;
@@ -400,10 +418,6 @@ def build_stylesheet() -> str:
     QMenuBar {{ background: {BG_SURFACE}; color: {TEXT_MUTED}; border-bottom: 1px solid {BORDER}; }}
     QMenuBar::item {{ background: transparent; padding: 6px 10px; }}
     QMenuBar::item:selected {{ background: {BG_HIGH}; color: {TEXT}; }}
-    QMenu {{ background: {BG_CONTAINER}; color: {TEXT}; border: 1px solid {BORDER}; border-radius: 0px; padding: 2px; }}
-    QMenu::item {{ padding: 6px 22px; }}
-    QMenu::item:selected {{ background: {SECONDARY_SOFT}; color: {TEXT}; }}
-    QMenu::separator {{ height: 1px; background: {BORDER}; margin: 2px 0; }}
 
     /* ============================= status bar =========================== */
     QStatusBar {{
@@ -421,14 +435,46 @@ def build_stylesheet() -> str:
     QLabel#statusPill[healthy="false"] {{ color: {ERR}; }}
 
     /* ============================= scrollbars ========================== */
-    QScrollBar:vertical {{ background: {BG_SURFACE}; width: 4px; margin: 0; }}
-    QScrollBar::handle:vertical {{ background: {BORDER}; border-radius: 0px; min-height: 24px; }}
-    QScrollBar::handle:vertical:hover {{ background: {ACCENT_TINT}; }}
-    QScrollBar:horizontal {{ background: {BG_SURFACE}; height: 4px; margin: 0; }}
-    QScrollBar::handle:horizontal {{ background: {BORDER}; border-radius: 0px; min-width: 24px; }}
-    QScrollBar::handle:horizontal:hover {{ background: {ACCENT_TINT}; }}
+    /* Overlay-style scrollbars: transparent gutter, pill handle that brightens
+       on hover. Wider than the original 4px so they're actually grabbable. */
+    QScrollBar:vertical {{
+        background: transparent; width: 10px; margin: 2px 2px 2px 0;
+    }}
+    QScrollBar::handle:vertical {{
+        background: {BORDER}; border-radius: {RADIUS_PILL};
+        min-height: 32px; margin: 0 2px;
+    }}
+    QScrollBar::handle:vertical:hover {{ background: {BORDER_STRONG}; }}
+    QScrollBar::handle:vertical:pressed {{ background: {ACCENT_TINT}; }}
+    QScrollBar:horizontal {{
+        background: transparent; height: 10px; margin: 0 2px 2px 2px;
+    }}
+    QScrollBar::handle:horizontal {{
+        background: {BORDER}; border-radius: {RADIUS_PILL};
+        min-width: 32px; margin: 2px 0;
+    }}
+    QScrollBar::handle:horizontal:hover {{ background: {BORDER_STRONG}; }}
+    QScrollBar::handle:horizontal:pressed {{ background: {ACCENT_TINT}; }}
     QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
     QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+    QAbstractScrollArea::corner {{ background: transparent; border: none; }}
+
+    /* ============================== menus ============================== */
+    QMenu {{
+        background: {BG_BRIGHT};
+        border: 1px solid {BORDER};
+        border-radius: {RADIUS};
+        padding: 6px;
+    }}
+    QMenu::item {{
+        padding: 7px 24px 7px 12px;
+        border-radius: {RADIUS_SM};
+        color: {TEXT};
+    }}
+    QMenu::item:selected {{ background: {ACCENT_SOFT}; color: {ACCENT_TINT}; }}
+    QMenu::item:disabled {{ color: {TEXT_FAINT}; }}
+    QMenu::separator {{ height: 1px; background: {BORDER}; margin: 6px 8px; }}
+    QMenu::icon {{ padding-left: 8px; }}
 
     /* ============================= splitter ============================ */
     QSplitter::handle {{ background: {BORDER}; }}
@@ -440,9 +486,13 @@ def build_stylesheet() -> str:
         background: {BG_BRIGHT};
         color: {TEXT};
         border: 1px solid {BORDER_STRONG};
-        border-radius: 0px;
-        padding: 4px 8px;
+        border-radius: {RADIUS_SM};
+        padding: 6px 10px;
     }}
+
+    /* ============================== dialogs ============================== */
+    QDialog {{ background: {BG_BASE}; }}
+    QDialog QFrame#panelCard {{ background: {BG_CONTAINER}; }}
     """
 
 
