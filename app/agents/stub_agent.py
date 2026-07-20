@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import re
 
+from app.agents import roles
 from app.agents.base import BaseAgent
 
 _STOPWORDS = {
@@ -32,6 +33,20 @@ class StubAgent(BaseAgent):
 
     async def _complete(self, system_static: str, system_skeleton: str, user: str) -> str:
         domain, task_desc, target = _parse_user(user)
+
+        if roles.is_planner(self.role):
+            # Without this a stub planner would emit a code scaffold, which the
+            # role guard rejects — so a keyless install could never demonstrate
+            # the Plan → Act pipeline at all.
+            return json.dumps({
+                "summary": _stub_plan(task_desc or "the requested work", self.name,
+                                      self.missing_key, domain),
+                "files_changed": ([{"path": target, "change_type": "none", "symbols": []}]
+                                  if target else []),
+                "new_content": None,
+                "file_writes": [],
+                "cross_domain_request": None,
+            })
 
         file_writes: list[dict] = []
         if _looks_like_creation(task_desc):
@@ -97,6 +112,27 @@ def _suggest_filename(task_desc: str) -> tuple[str, str]:
     base = meaningful[0] if meaningful else "generated"
     base = re.sub(r"[^a-z0-9_]", "_", base)
     return base, ext
+
+
+def _stub_plan(task_desc: str, agent: str, missing_key: str, domain: str) -> str:
+    """A structurally-correct placeholder plan, so the pipeline is observable
+    before any provider key is configured."""
+    scope = domain or "the workspace root"
+    return (
+        f"# Plan: {task_desc}\n\n"
+        f"_Authored by the stub planner `{agent}`. Set {missing_key} in Settings → "
+        f"API Configuration for a real AI-authored plan._\n\n"
+        "## Approach\n"
+        f"1. Locate the modules in {scope} that own this behaviour.\n"
+        "2. Make the change in the smallest number of files.\n"
+        "3. Add or update tests covering it.\n\n"
+        "## Work by role\n"
+        "- **Backend** — server-side logic and APIs.\n"
+        "- **Frontend** — UI and client state.\n"
+        "- **Database** — schema and migrations, if the data model changes.\n\n"
+        "## Verification\n"
+        "Run the project's test suite, then exercise the change in the app.\n"
+    )
 
 
 def _scaffold(base: str, ext: str, task_desc: str, agent: str, missing_key: str) -> str:
