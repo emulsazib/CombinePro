@@ -91,7 +91,7 @@ def main() -> int:
 
     # Start the bundled memory sidecar. Missing Node is not fatal — the app runs
     # without Delta Memory and reports it in Settings → Memory & MCP.
-    sidecar = SidecarProcess(config.sidecar_url)
+    sidecar = SidecarProcess(config.sidecar_url, workspace)
     if not sidecar.start():
         log.warning("Delta Memory unavailable: %s", sidecar.reason)
 
