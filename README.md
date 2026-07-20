@@ -3,6 +3,7 @@
 **A local-first desktop IDE where multiple AI coding agents work on the same codebase at once** — each assigned its own role and its own folder, coordinated by a rule-based router, and governed by a shared knowledge base. Built with Python and PyQt6 for macOS and Windows.
 
 [![Release](https://img.shields.io/github/v/release/emulsazib/CombinePro?label=release)](https://github.com/emulsazib/CombinePro/releases)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1e2024)](#install)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](#requirements-development)
 [![Built with PyQt6](https://img.shields.io/badge/built%20with-PyQt6-41cd52)](https://www.riverbankcomputing.com/software/pyqt/)
@@ -26,6 +27,8 @@ Most AI coding tools are a single assistant in a chat box. CombinePro is an **AI
 - [Repository layout](#repository-layout)
 - [FAQ](#faq)
 - [Roadmap](#roadmap)
+- [License](#license)
+- [Open source](#open-source)
 
 ---
 
@@ -289,6 +292,73 @@ Yes. *Agents → Add New Agent* takes a name, provider, model, role and an envir
 - A local-LLM triage model (drop-in replacement for the rule-based router)
 - Per-agent cost and token dashboards
 - Linux packaging
+
+## License
+
+CombinePro is free and open source software, released under the
+**[GNU General Public License v3.0](LICENSE)**.
+
+Copyright © 2026 Emul Ahamed Sazib.
+
+### What that means
+
+| You may | On this condition |
+|---|---|
+| Use it for anything, including commercially | — |
+| Read, study and modify the source | — |
+| Share it, modified or not | Recipients get the same freedoms |
+| Sell it or build a business on it | — |
+| Distribute a modified version | You publish your source under GPL-3.0 too |
+
+There is **no warranty**. See sections 15 and 16 of the [LICENSE](LICENSE).
+
+### Why GPL-3.0 specifically
+
+CombinePro's UI is built on **PyQt6**, which Riverbank Computing dual-licenses
+as GPL-3.0 or a paid commercial licence. Any application that links PyQt6
+without a commercial licence must itself be distributed under GPL-compatible
+terms, so GPL-3.0 is the licence that makes the published installers compliant.
+
+If you need to ship a closed-source derivative, you have two routes: buy a
+[commercial PyQt licence](https://www.riverbankcomputing.com/commercial/pyqt)
+from Riverbank, or port the UI layer to **PySide6**, the Qt Company's LGPL
+binding.
+
+## Open source
+
+CombinePro is developed in the open. Issues, discussions and pull requests are
+welcome at [github.com/emulsazib/CombinePro](https://github.com/emulsazib/CombinePro).
+Contributions are accepted under the project's GPL-3.0 licence.
+
+Getting set up takes three commands — see [Build from source](#build-from-source).
+Before opening a pull request, please run the bundle self-test:
+
+```sh
+.venv/bin/python -c "from app.selftest import run; raise SystemExit(run())"
+```
+
+### Third-party components
+
+CombinePro stands on other people's work. The installers redistribute these,
+and their licences travel with them:
+
+| Component | Licence | Role |
+|---|---|---|
+| [Qt 6](https://www.qt.io/) | LGPL-3.0 | UI toolkit |
+| [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) | GPL-3.0 | Python bindings for Qt |
+| [Feather Icons](https://feathericons.com/) | MIT | Icon set, embedded in `app/ui/feather.py` |
+| [@vonneollc/knbase](https://www.npmjs.com/package/@vonneollc/knbase) | MIT | Governed knowledge base |
+| [tree-sitter](https://tree-sitter.github.io/) + language pack | MIT | AST skeleton parsing |
+| [qasync](https://github.com/CabbageDevelopment/qasync) | BSD-2-Clause | Qt/asyncio event-loop bridge |
+| [watchdog](https://github.com/gorakhargosh/watchdog) | Apache-2.0 | Filesystem watching |
+| [httpx](https://www.python-httpx.org/) · [python-dotenv](https://github.com/theskumar/python-dotenv) | BSD-3-Clause | HTTP client · env loading |
+| [anthropic](https://github.com/anthropics/anthropic-sdk-python) | MIT | Claude connector |
+| [openai](https://github.com/openai/openai-python) · [google-genai](https://github.com/googleapis/python-genai) | Apache-2.0 | OpenAI · Gemini connectors |
+| [PyInstaller](https://pyinstaller.org/) | GPL-2.0 with bootloader exception | Packaging (the exception permits distributing the result) |
+| [Express](https://expressjs.com/) and the sidecar's npm tree | MIT / ISC / BSD | Memory sidecar HTTP layer |
+
+Full licence texts ship inside each package in `.venv/` and
+`sidecar/node_modules/`.
 
 ---
 
